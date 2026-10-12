@@ -155,7 +155,7 @@ textarea.input { padding: var(--space-3) var(--space-4); min-height: 96px; resiz
 .hint.warn { color: var(--color-danger); font-weight: var(--fw-bold); }
 .row-fields { display: grid; gap: 0 var(--space-3); grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
 .unit { position: relative; }
-.unit .input { padding-right: 52px; }
+.unit .input { padding-right: 70px; }
 .unit > span { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--color-text-secondary); font-weight: var(--fw-bold); pointer-events: none; }
 .check { display: flex; align-items: center; gap: var(--space-3); min-height: var(--touch-min); cursor: pointer; }
 .check input { width: 22px; height: 22px; accent-color: var(--color-accent); flex: none; }

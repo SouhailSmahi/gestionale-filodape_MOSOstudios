@@ -238,6 +238,13 @@ export const lista = <R>(t: Tabella | 'articoli' | 'tipi_miele', order = 'nome')
 export const salva = (t: string, v: Record<string, unknown>, id?: number | null) =>
   id ? q(sb.from(t).update(v).eq('id', id)) : q<{ id: number }>(sb.from(t).insert(v).select('id').single());
 export const elimina = (t: string, id: number) => q(sb.from(t).delete().eq('id', id));
+/** Cancella se mai usato; se è collegato ad altre registrazioni restituisce 'usato' (allora si archivia). */
+export async function eliminaSePossibile(t: string, id: number): Promise<'eliminato' | 'usato'> {
+  const r = await sb.from(t).delete().eq('id', id);
+  if (r.error?.code === '23503') return 'usato';
+  if (r.error) throw new AppError(messaggioErrore(r.error));
+  return 'eliminato';
+}
 export const archivia = (t: string, id: number, archiviato = true) => q(sb.from(t).update({ archiviato }).eq('id', id));
 
 // ---------------------------------------------------------------- articoli e prodotti

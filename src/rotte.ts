@@ -1,6 +1,5 @@
 /** Elenco delle pagine con il loro indirizzo e chi può aprirle. */
-import { html } from 'lit-html';
-import type { Rotta, Pagina } from './app';
+import type { Rotta } from './app';
 import { nuovoOrdine } from './screens/ordine-nuovo';
 import { mieiOrdini, disponibilita } from './screens/staff';
 import { impostazioni } from './screens/impostazioni';
@@ -8,11 +7,11 @@ import { home } from './screens/home';
 import { ordini, schedaOrdine } from './screens/ordini';
 import { andamento } from './screens/andamento';
 import { magazzino } from './screens/magazzino';
+import { anagrafiche, anagraficaArticoli } from './screens/anagrafiche';
+import { mercato, attrezzatura, notifiche, altro } from './screens/varie';
+import { acquisti, nuovoAcquisto, schedaAcquisto } from './screens/acquisti';
 import { produzione, schedaLotto, tappa, nuovaAttivita } from './screens/produzione';
 
-const prossimamente = (titolo: string, tab: string) => (): Pagina => ({
-  titolo, tab, vista: () => html`<h1>${titolo}</h1><p class="sub">In costruzione.</p>`,
-});
 
 export const rotte: Rotta[] = [
   // aiutanti (e Filippo)
@@ -31,11 +30,13 @@ export const rotte: Rotta[] = [
   { path: '/produzione/lotti/:id', ruolo: 'admin', f: schedaLotto },
   { path: '/produzione/lotti/:id/:tappa', ruolo: 'admin', f: tappa },
   { path: '/magazzino', ruolo: 'admin', f: (_p, q) => magazzino(q) },
-  { path: '/acquisti', ruolo: 'admin', f: prossimamente('Acquisti', 'acquisti') },
-  { path: '/mercato', ruolo: 'admin', f: prossimamente('Mercato', 'mercato') },
-  { path: '/attrezzatura', ruolo: 'admin', f: prossimamente('Attrezzatura', 'attrezzatura') },
-  { path: '/notifiche', ruolo: 'admin', f: prossimamente('Notifiche', 'notifiche') },
-  { path: '/anagrafiche', ruolo: 'admin', f: prossimamente('Anagrafiche', 'anagrafiche') },
-  { path: '/articoli', ruolo: 'admin', f: prossimamente('Anagrafica articoli', 'articoli') },
-  { path: '/altro', ruolo: 'admin', f: prossimamente('Altro', 'altro') },
+  { path: '/acquisti', ruolo: 'admin', f: (_p, q) => acquisti(q) },
+  { path: '/acquisti/nuovo', ruolo: 'admin', f: nuovoAcquisto },
+  { path: '/acquisti/:id', ruolo: 'admin', f: schedaAcquisto },
+  { path: '/mercato', ruolo: 'admin', f: mercato },
+  { path: '/attrezzatura', ruolo: 'admin', f: attrezzatura },
+  { path: '/notifiche', ruolo: 'admin', f: notifiche },
+  { path: '/anagrafiche', ruolo: 'admin', f: (_p, q) => anagrafiche(q) },
+  { path: '/articoli', ruolo: 'admin', f: (_p, q) => anagraficaArticoli(q) },
+  { path: '/altro', ruolo: 'admin', f: altro },
 ];

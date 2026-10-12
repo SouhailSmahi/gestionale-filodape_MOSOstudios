@@ -34,7 +34,7 @@ function rettifica(o: { titolo: string; unita: string; disponibile: number; maga
     }, 'primary')}</div>`);
 }
 
-function prezzo(v: T.Disponibilita) {
+export function prezzo(v: T.Disponibilita) {
   const m = new Modulo({ prezzo: v.prezzo_corrente != null ? num(v.prezzo_corrente, 2) : '' });
   let storico: { prezzo: number; valido_dal: string; valido_al: string | null }[] = [];
   const f = finestra(() => html`<h2>Prezzo: ${nomeBreve(v.prodotto, v.formato)}</h2>

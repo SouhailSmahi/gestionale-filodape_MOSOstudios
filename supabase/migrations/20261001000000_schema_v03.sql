@@ -27,6 +27,8 @@ create extension if not exists pgcrypto;
 
 do $$ begin
     execute format('alter database %I set timezone = %L', current_database(), 'Europe/Rome');
+exception when insufficient_privilege then
+    raise notice 'Fuso orario del database non impostato (permessi): le date restano corrette, sono salvate con il fuso.';
 end $$;
 set timezone = 'Europe/Rome';
 
