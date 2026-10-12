@@ -1,0 +1,167 @@
+/* =========================================================================
+   Filodape — design token (variante C)
+   Fonte colori: Brand Image MOSO-BRD-2026-001 rev.01, cap. 2
+   Uso: importare una volta (es. src/styles/tokens.css) e usare SOLO le
+   variabili semantiche nei componenti, mai gli hex.
+   Tema scuro: automatico da sistema, forzabile con <html data-theme="dark|light">
+   ========================================================================= */
+
+/* --- Font (Google Fonts) ---------------------------------------------------
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+*/
+
+:root {
+  /* ---------- Palette di brand (primitivi: non usarli nei componenti) ---------- */
+  --brand-crema: #FAF7F2;        /* Crema naturale  */
+  --brand-avorio: #F0E8D8;       /* Avorio caldo    */
+  --brand-inchiostro: #1A1A1A;   /* Nero inchiostro */
+  --brand-ambra: #C8860A;        /* Ambra miele     */
+  --brand-ambra-chiara: #E8A830; /* Ambra chiara    */
+  --brand-miele-scuro: #A87209;  /* Miele scuro = oklch(0.594 0.123 75.2) */
+  --brand-verde: #7A8C6E;        /* Verde naturale  */
+  --brand-terra: #5C3D11;        /* Marrone terra   */
+  --brand-bianco: #FFFFFF;       /* Bianco puro     */
+
+  /* ---------- Colori semantici — TEMA CHIARO ---------- */
+  --color-bg: var(--brand-crema);                /* sfondo pagina */
+  --color-surface: var(--brand-avorio);          /* card, sezioni, menu in basso, barra laterale */
+  --color-field: var(--brand-bianco);            /* interno di campi, select, chip */
+  --color-text: var(--brand-inchiostro);         /* testo principale, titoli, numeri */
+  --color-text-secondary: var(--brand-terra);    /* testo secondario, etichette, meta (9,2:1 su crema) */
+  --color-border: #DCCDB3;                       /* bordi card, divisori righe */
+  --color-border-field: #9C8A70;                 /* bordo campi (≥3:1 su bianco) */
+  --color-rule: var(--brand-terra);              /* filetto sopra la fascia KPI */
+  --color-accent: var(--brand-ambra);            /* SOLO riempimenti: bottone primario, voce attiva, badge */
+  --color-accent-hover: var(--brand-miele-scuro);
+  --color-accent-soft: #F7E6C2;                  /* fondo badge "in attesa"/"aperto" */
+  --color-on-accent: var(--brand-inchiostro);    /* testo su ambra (5,7:1) */
+  --color-link: #8A5800;                         /* testo ambra leggibile (5,6:1 su crema, 5,0:1 su avorio) — mai #C8860A per il testo */
+  --color-success: var(--brand-verde);           /* solo forme/fondi con testo inchiostro (4,8:1) */
+  --color-danger: #A8321B;                       /* testo e bordo errori (6,3:1 su crema) */
+  --color-danger-soft: #FBEDE8;                  /* fondo campo in errore */
+  --color-focus: var(--brand-terra);             /* anello di focus */
+  --color-overlay: rgba(26, 26, 26, .45);
+  --color-stage: #ECE6DC;
+
+  /* Grafici (palette validata, non cambiare) */
+  --chart-1: #C98500;
+  --chart-2: #A8431B;
+  --chart-3: #4A3AA7;
+  --chart-grid: var(--color-border);
+  --chart-axis: var(--color-text-secondary);
+
+  /* Stati comande: fondo / testo / bordo (riconoscibili anche dall'icona) */
+  --status-wait-bg: var(--color-accent-soft);   --status-wait-fg: var(--color-text);
+  --status-ok-bg: var(--color-field);           --status-ok-fg: var(--color-text);
+  --status-prod-bg: var(--color-accent);        --status-prod-fg: var(--color-on-accent);
+  --status-part-bg: var(--color-field);         --status-part-fg: var(--color-text);
+  --status-done-bg: var(--color-success);       --status-done-fg: var(--brand-inchiostro);
+  --status-void-bg: transparent;                --status-void-fg: var(--color-text-secondary);
+
+  /* ---------- Tipografia ---------- */
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: Lato, system-ui, sans-serif;
+  --fw-regular: 400; --fw-bold: 700; --fw-black: 900;
+  --fs-display: 38px;   --lh-display: 1.15;  /* titolo pagina desktop */
+  --fs-title: 30px;     --lh-title: 1.15;    /* titolo pagina telefono */
+  --fs-section: 21px;   --lh-section: 1.25;  /* titolo sezione (Playfair) */
+  --fs-card-title: 19px;                     /* titolo card/grafico (Playfair) */
+  --fs-kpi: 44px;       --fs-kpi-m: 28px;    /* numeri chiave desktop / telefono (Lato 900) */
+  --fs-row: 17px;                            /* titolo riga elenco (Lato 700) */
+  --fs-body: 16px;      --lh-body: 1.5;      /* minimo per testo base */
+  --fs-label: 16px;                          /* etichette campo (Lato 700) */
+  --fs-small: 14px;                          /* meta e assi: solo testo secondario */
+  --fs-nav: 13px;                            /* etichette menu in basso (sotto icona) */
+  --num: tabular-nums;                       /* font-variant-numeric per importi e quantità */
+
+  /* ---------- Spaziature (base 4) ---------- */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
+  --gutter-m: 20px;   /* margine laterale telefono */
+  --gutter-d: 48px;   /* margine contenuto desktop */
+
+  /* ---------- Raggi ---------- */
+  --radius-sm: 6px;     /* voci barra laterale */
+  --radius-md: 12px;    /* bottoni, campi */
+  --radius-lg: 14px;    /* card */
+  --radius-pill: 999px; /* badge, chip, contatori */
+
+  /* ---------- Ombre (brand: niente ombre pesanti) ---------- */
+  --shadow-none: none;                                   /* card: solo bordo */
+  --shadow-pop: 0 8px 24px rgba(92, 61, 17, .18);        /* toast, menu a comparsa */
+
+  /* ---------- Dimensioni e interazione ---------- */
+  --touch-min: 44px;      /* minimo assoluto */
+  --control-h: 48px;      /* bottoni */
+  --control-h-lg: 56px;   /* bottone principale a tutta larghezza (telefono) */
+  --field-h: 52px;
+  --bottom-nav-h: 76px;
+  --sidebar-w: 256px;
+  --bp-desktop: 1024px;   /* da qui barra laterale (usare in @media, non come var) */
+  --border-w: 1px; --border-w-strong: 1.5px; --rule-w: 2px; --focus-w: 3px;
+  --motion: 150ms ease-out;
+}
+
+/* ---------- TEMA SCURO ---------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { color-scheme: dark; }
+}
+:root[data-theme="dark"] { color-scheme: dark; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg: #1C1712;
+    --color-surface: #2A231C;
+    --color-field: #1C1712;
+    --color-text: #F3ECE2;
+    --color-text-secondary: #D9C9AE;
+    --color-border: #40362A;
+    --color-border-field: #7A6A55;
+    --color-rule: #D9C9AE;
+    --color-accent: #E8A830;
+    --color-accent-hover: #F0BC55;
+    --color-accent-soft: #3A2E17;
+    --color-on-accent: #1C1712;
+    --color-link: #E8A830;
+    --color-success: #9DB08F;
+    --color-danger: #F08A70;
+    --color-danger-soft: #3A211A;
+    --color-focus: #E8A830;
+    --color-overlay: rgba(0, 0, 0, .6);
+    --color-stage: #0F0C09;
+    --chart-1: #BA880A; --chart-2: #C44A2E; --chart-3: #887CE4;
+    --shadow-pop: 0 8px 24px rgba(0, 0, 0, .5);
+  }
+}
+:root[data-theme="dark"] {
+  --color-bg: #1C1712;
+  --color-surface: #2A231C;
+  --color-field: #1C1712;
+  --color-text: #F3ECE2;
+  --color-text-secondary: #D9C9AE;
+  --color-border: #40362A;
+  --color-border-field: #7A6A55;
+  --color-rule: #D9C9AE;
+  --color-accent: #E8A830;
+  --color-accent-hover: #F0BC55;
+  --color-accent-soft: #3A2E17;
+  --color-on-accent: #1C1712;
+  --color-link: #E8A830;
+  --color-success: #9DB08F;
+  --color-danger: #F08A70;
+  --color-danger-soft: #3A211A;
+  --color-focus: #E8A830;
+  --color-overlay: rgba(0, 0, 0, .6);
+  --color-stage: #0F0C09;
+  --chart-1: #BA880A; --chart-2: #C44A2E; --chart-3: #887CE4;
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, .5);
+}
+
+/* Logo: chiaro -> logo-filodape.png ; scuro -> logo-filodape-chiaro.png
+   Larghezza minima 140px, payoff mai separato, nessun filtro/ombra. */
+
+/* Base consigliata */
+html { background: var(--color-bg); color: var(--color-text); font: var(--fw-regular) var(--fs-body)/var(--lh-body) var(--font-body); font-variant-numeric: var(--num); }
+:focus-visible { outline: var(--focus-w) solid var(--color-focus); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { :root { --motion: 0ms; } }

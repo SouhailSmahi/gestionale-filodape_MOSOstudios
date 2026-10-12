@@ -1,0 +1,198 @@
+/** Ordini di Filippo: elenco per stato e scheda con conferma, consegne e pagamenti. */
+import { html, nothing, type TemplateResult } from 'lit-html';
+import { live } from 'lit-html/directives/live.js';
+import type { Pagina } from '../app';
+import { aggiorna, ricarica } from '../app';
+import * as api from '../lib/api';
+import { catalogo, nomeVariante, variante } from '../lib/catalogo';
+import { eur, fd, fdl, fdt, isoDate, parseNum } from '../lib/format';
+import { messaggioErrore } from '../lib/errors';
+import { icon } from '../ui/icons';
+import { testa, badgeStato, segmenti, toast, chiedi, Modulo, campo, erroreModulo, bottoneInvio, riga, lista } from '../ui/kit';
+import type { Comanda, Saldo, StatoComanda } from '../lib/types';
+
+type Vista = 'attesa' | 'corso' | 'evasi' | 'saldi' | 'annullati';
+const APERTI: StatoComanda[] = ['confermata', 'in_produzione', 'parzialmente_evasa'];
+
+const totale = (o: Comanda) => o.righe.reduce((a, r) => ({ e: a.e + (r.prezzo_unitario_applicato ?? 0) * r.quantita_ordinata, x: a.x || r.prezzo_unitario_applicato == null }), { e: 0, x: false });
+const dovuto = (o: Comanda) => o.righe.reduce((a, r) => a + (r.prezzo_unitario_applicato ?? 0) * r.quantita_evasa, 0);
+const incassato = (o: Comanda) => o.pagamenti.reduce((a, p) => a + Number(p.importo), 0);
+const nomeCliente = (o: Comanda) => `${o.cliente?.nome ?? ''} ${o.cliente?.cognome ?? ''}`.trim();
+
+export function ordini(q: URLSearchParams): Pagina {
+  let vista = (q.get('vista') as Vista) || 'attesa';
+  let tutte: Comanda[] = []; let saldi: Saldo[] = [];
+  const filtri: Record<Vista, (o: Comanda) => boolean> = {
+    attesa: (o) => o.stato === 'in_attesa_conferma',
+    corso: (o) => APERTI.includes(o.stato),
+    evasi: (o) => o.stato === 'evasa' && Date.now() - new Date(o.creata_il).getTime() < 60 * 864e5,
+    saldi: (o) => saldi.some((s) => s.comanda_id === o.id && Number(s.saldo) !== 0),
+    annullati: (o) => o.stato === 'annullata' && Date.now() - new Date(o.creata_il).getTime() < 60 * 864e5,
+  };
+  return {
+    titolo: 'Ordini', tab: 'ordini',
+    async carica() {
+      [tutte, saldi] = await Promise.all([api.comande({ daGiorni: 400 }), api.saldiAperti(), catalogo()]) as [Comanda[], Saldo[], unknown];
+      // gli aperti più vecchi di 400 giorni restano comunque visibili
+      const vecchi = await api.comande({ stati: ['in_attesa_conferma', ...APERTI] });
+      vecchi.forEach((o) => { if (!tutte.some((x) => x.id === o.id)) tutte.push(o); });
+    },
+    vista() {
+      const el = tutte.filter(filtri[vista]).sort((a, b) => vista === 'corso'
+        ? (a.data_consegna_indicativa ?? '').localeCompare(b.data_consegna_indicativa ?? '') : b.creata_il.localeCompare(a.creata_il));
+      const n = (k: Vista) => tutte.filter(filtri[k]).length;
+      return html`${testa('Ordini', { azioni: html`<a class="btn" href="/ordini/nuovo">${icon('piu')} Nuovo ordine</a>` })}
+        ${segmenti<Vista>([['attesa', 'Da confermare', n('attesa')], ['corso', 'In corso', n('corso')], ['saldi', 'Da incassare', n('saldi')], ['evasi', 'Consegnati di recente'], ['annullati', 'Annullati']],
+          vista, (k) => { vista = k; history.replaceState(history.state, '', `/ordini?vista=${k}`); aggiorna(); })}
+        ${el.length ? html`<div class="cols">${el.map((o) => cardOrdine(o, saldi.find((s) => s.comanda_id === o.id)))}</div>`
+          : html`<div class="empty">Nessun ordine in questa sezione.</div>`}`;
+    },
+  };
+}
+
+function cardOrdine(o: Comanda, s?: Saldo): TemplateResult {
+  const t = totale(o);
+  return html`<a class="card" href=${`/ordini/${o.id}`} style="display:block;color:inherit;text-decoration:none">
+    <div class="card-head"><h3>${nomeCliente(o)}</h3>${badgeStato(o.stato)}</div>
+    <div>${o.righe.map((r) => `${nomeVariante(r.variante_id)} × ${r.quantita_ordinata}${r.quantita_evasa && r.quantita_evasa < r.quantita_ordinata ? ` (${r.quantita_evasa} consegnati)` : ''}`).join(', ')}</div>
+    <div class="row mt wrap"><span class="small">Inserito da ${o.creatore?.nome ?? '—'} il ${fd(o.creata_il)}${o.data_consegna_indicativa ? html`, consegna <b>${fd(o.data_consegna_indicativa)}</b>` : nothing}</span>
+      <b class="num">${eur(t.e)}${t.x ? ' + X' : ''}</b></div>
+    ${s && Number(s.saldo) ? html`<div class="small" style="margin-top:4px">${Number(s.saldo) > 0 ? html`<b class="danger-text">Da incassare ${eur(Number(s.saldo))}</b>` : html`<b>Da restituire ${eur(-Number(s.saldo))}</b>`}</div>` : nothing}
+  </a>`;
+}
+
+export function schedaOrdine(p: Record<string, string>): Pagina {
+  const id = Number(p.id);
+  let o: Comanda;
+  let aperto: '' | 'consegna' | 'pagamento' | 'data' = '';
+  const mc = new Modulo({ data: '' });
+  const mp = new Modulo({ importo: '', nota: '' });
+  let qtyCons: Record<number, string> = {};
+  let errCons = '';
+  let busy = false;
+
+  const esegui = async (fn: () => Promise<unknown>, ok: string) => {
+    if (busy) return; busy = true; aggiorna();
+    try { await fn(); toast(ok); aperto = ''; await ricarica(); }
+    catch (e) { toast(messaggioErrore(e), true); }
+    finally { busy = false; aggiorna(); }
+  };
+
+  async function conferma(stato: 'confermata' | 'in_produzione') {
+    mc.err = {};
+    if (!mc.v.data) mc.errore('data', 'Indica la data di consegna indicativa: la vedrà chi ha preso l\'ordine');
+    if (await mc.invia(() => api.confermaComanda(id, stato, mc.v.data))) {
+      toast(stato === 'in_produzione' ? 'Segnato in produzione' : 'Ordine confermato'); aperto = ''; ricarica();
+    }
+  }
+  async function consegna() {
+    errCons = '';
+    const righe: { comanda_riga_id: number; quantita: number }[] = [];
+    for (const r of o.righe) {
+      const res = r.quantita_ordinata - r.quantita_evasa; if (!res) continue;
+      const q = Number(qtyCons[r.id] ?? 0);
+      if (!Number.isInteger(q) || q < 0) { errCons = `${nomeVariante(r.variante_id)}: scrivi un numero intero`; break; }
+      if (q > res) { errCons = `${nomeVariante(r.variante_id)}: restano da consegnare solo ${res} pz`; break; }
+      if (q) righe.push({ comanda_riga_id: r.id, quantita: q });
+    }
+    if (!errCons && !righe.length) errCons = 'Indica almeno un pezzo da consegnare';
+    if (errCons) { aggiorna(); return; }
+    const tutto = righe.every((x) => { const r = o.righe.find((y) => y.id === x.comanda_riga_id)!; return x.quantita === r.quantita_ordinata - r.quantita_evasa; })
+      && righe.length === o.righe.filter((r) => r.quantita_evasa < r.quantita_ordinata).length;
+    esegui(() => api.registraConsegna(id, righe), tutto ? 'Consegna completata' : 'Consegna parziale registrata');
+  }
+  async function pagamento(segno: 1 | -1) {
+    mp.err = {};
+    const v = parseNum(mp.v.importo);
+    if (!v || v <= 0) mp.errore('importo', 'Scrivi un importo maggiore di zero, es. 10,50');
+    if (await mp.invia(() => api.registraPagamento(id, segno * Math.round((v ?? 0) * 100) / 100, mp.v.nota.trim() || (segno > 0 ? 'Incasso' : 'Resto dato al cliente')))) {
+      toast(segno > 0 ? 'Incasso registrato' : 'Resto registrato'); mp.v = { importo: '', nota: '' }; aperto = ''; ricarica();
+    }
+  }
+  async function annulla() {
+    if (o.righe.some((r) => r.quantita_evasa)) { toast('Ci sono già consegne registrate: l\'ordine non si può annullare', true); return; }
+    if (!(await chiedi('Annullare l\'ordine?', `L'ordine di ${nomeCliente(o)} passa tra gli annullati.`, 'Annulla ordine', true))) return;
+    esegui(() => api.annullaComanda(id), 'Ordine annullato');
+  }
+
+  const pannelloConsegna = () => html`<div class="formbox mt"><h3 style="margin-bottom:var(--space-3)">Registra consegna</h3>
+    ${o.righe.filter((r) => r.quantita_evasa < r.quantita_ordinata).map((r) => {
+      const res = r.quantita_ordinata - r.quantita_evasa, g = variante(r.variante_id)?.disponibile ?? 0;
+      return html`<div class="field"><label for=${`cq${r.id}`}>${nomeVariante(r.variante_id)}: da consegnare ${res}, pronti ${g}</label>
+        <input class="input numero" id=${`cq${r.id}`} type="number" inputmode="numeric" min="0" step="1" .value=${live(qtyCons[r.id] ?? '')}
+          @input=${(e: Event) => { qtyCons[r.id] = (e.target as HTMLInputElement).value; errCons = ''; aggiorna(); }}>
+        ${Number(qtyCons[r.id] ?? 0) > g ? html`<div class="hint warn">Ne hai pronti solo ${g}: la consegna verrà rifiutata.</div>` : nothing}</div>`;
+    })}
+    ${errCons ? html`<div class="errmsg" role="alert">${icon('allerta')}<span>${errCons}</span></div>` : nothing}
+    <div class="btns"><button class="btn primary" ?disabled=${busy} @click=${consegna}>Conferma consegna</button>
+      <button class="btn quiet" @click=${() => { aperto = ''; aggiorna(); }}>Chiudi</button></div></div>`;
+
+  const pannelloPagamento = () => html`<div class="formbox mt"><h3 style="margin-bottom:var(--space-3)">Pagamento</h3>
+    ${erroreModulo(mp)}
+    ${campo(mp, 'importo', 'Importo', { numero: true, unita: '€', placeholder: '10,50' })}
+    ${campo(mp, 'nota', 'Nota (facoltativa)', { placeholder: 'Contanti, bonifico…' })}
+    <div class="btns">${bottoneInvio(mp, 'Ho incassato', () => pagamento(1), 'primary')}${bottoneInvio(mp, 'Ho dato il resto', () => pagamento(-1), '')}</div></div>`;
+
+  const pannelloData = () => html`<div class="formbox mt">
+    ${erroreModulo(mc)}
+    ${campo(mc, 'data', o.stato === 'in_attesa_conferma' ? 'Data di consegna indicativa' : 'Nuova data indicativa', { type: 'date', min: isoDate() })}
+    ${o.stato === 'in_attesa_conferma' && o.righe.some((r) => r.quantita_ordinata > (variante(r.variante_id)?.disponibile ?? 0))
+      ? html`<div class="note" style="margin-bottom:var(--space-3)">La merce pronta non basta per tutto l'ordine: valuta "In produzione".</div>` : nothing}
+    <div class="btns">${bottoneInvio(mc, o.stato === 'in_attesa_conferma' ? 'Conferma' : 'Salva come confermato', () => conferma('confermata'), 'primary')}
+      ${bottoneInvio(mc, o.stato === 'in_attesa_conferma' ? 'In produzione' : 'Salva in produzione', () => conferma('in_produzione'), '')}
+      ${o.stato === 'in_attesa_conferma' ? html`<button class="btn quiet" @click=${annulla}>Annulla ordine</button>`
+        : html`<button class="btn quiet" @click=${() => { aperto = ''; aggiorna(); }}>Chiudi</button>`}</div></div>`;
+
+  return {
+    titolo: 'Ordine', tab: 'ordini', genitore: { path: '/ordini', titolo: 'Ordini' },
+    async carica() {
+      [o] = await Promise.all([api.comanda(id), catalogo(true)]) as [Comanda, unknown];
+      this.titolo = `Ordine di ${nomeCliente(o)}`;
+      mc.v.data = o.data_consegna_indicativa ?? ''; mc.pulito();
+      qtyCons = {};
+      o.righe.forEach((r) => { const res = r.quantita_ordinata - r.quantita_evasa; qtyCons[r.id] = String(Math.max(0, Math.min(res, variante(r.variante_id)?.disponibile ?? 0))); });
+      if (o.stato === 'in_attesa_conferma') aperto = 'data';
+    },
+    vista() {
+      const t = totale(o), dv = dovuto(o), inc = incassato(o), sal = Math.round((dv - inc) * 100) / 100;
+      const attivo = APERTI.includes(o.stato);
+      return html`${testa(nomeCliente(o), { extra: badgeStato(o.stato),
+          sub: html`Inserito da ${o.creatore?.nome ?? '—'} ${fdt(o.creata_il)}${o.cliente?.telefono ? html` · <a class="link-text" href=${`tel:${o.cliente.telefono}`}>${o.cliente.telefono}</a>` : nothing}` })}
+      <div class="cols cols-main">
+        <div>
+          <div class="card">
+            <div class="table-wrap"><table class="t"><thead><tr><th>Prodotto</th><th class="r">Pezzi</th><th class="r">Consegnati</th><th class="r">Importo</th></tr></thead>
+              <tbody>${o.righe.map((r) => html`<tr><td>${nomeVariante(r.variante_id)}</td><td class="r">${r.quantita_ordinata}</td><td class="r">${r.quantita_evasa}</td>
+                <td class="r">${r.prezzo_unitario_applicato == null ? html`<span class="small">prezzo X</span>` : eur(r.prezzo_unitario_applicato * r.quantita_ordinata)}</td></tr>`)}</tbody>
+              <tfoot><tr><td colspan="3">Totale</td><td class="r">${eur(t.e)}${t.x ? ' + X' : ''}</td></tr></tfoot></table></div>
+            ${o.data_consegna_indicativa && o.stato !== 'annullata' ? html`<p class="mt">Consegna indicativa: <b>${fdl(o.data_consegna_indicativa)}</b></p>` : nothing}
+            ${o.note ? html`<p class="mt"><span class="small">Nota:</span> ${o.note}</p>` : nothing}
+          </div>
+
+          ${o.stato === 'in_attesa_conferma' ? html`<section class="section"><h2>Conferma</h2><p class="sub">Scegli quando pensi di consegnare: la data la vede anche chi ha preso l'ordine.</p>${pannelloData()}</section>` : nothing}
+
+          ${attivo || (o.stato === 'evasa' && sal !== 0) ? html`<div class="btns">
+            ${attivo ? html`<button class="btn ${aperto === 'consegna' ? 'primary' : ''}" @click=${() => { aperto = aperto === 'consegna' ? '' : 'consegna'; aggiorna(); }}>Registra consegna</button>` : nothing}
+            <button class="btn ${aperto === 'pagamento' ? 'primary' : ''}" @click=${() => { aperto = aperto === 'pagamento' ? '' : 'pagamento'; aggiorna(); }}>Pagamento</button>
+            ${o.stato === 'confermata' || o.stato === 'in_produzione' ? html`<button class="btn" @click=${() => { aperto = aperto === 'data' ? '' : 'data'; aggiorna(); }}>Cambia data</button>` : nothing}
+            ${o.stato === 'confermata' || o.stato === 'in_produzione' ? html`<button class="btn quiet" @click=${annulla}>Annulla ordine</button>` : nothing}
+          </div>` : nothing}
+          ${aperto === 'consegna' ? pannelloConsegna() : nothing}
+          ${aperto === 'pagamento' ? pannelloPagamento() : nothing}
+          ${aperto === 'data' && o.stato !== 'in_attesa_conferma' ? pannelloData() : nothing}
+        </div>
+
+        <aside class="stack">
+          ${o.stato !== 'in_attesa_conferma' && o.stato !== 'annullata' ? html`<div class="card"><h3>Conti</h3><dl class="dl mt">
+            <dt>Consegnato</dt><dd>${eur(dv)}</dd><dt>Incassato</dt><dd>${eur(inc)}</dd>
+            <dt>${sal > 0 ? 'Da incassare' : sal < 0 ? 'Da restituire' : 'Saldo'}</dt><dd class=${sal > 0 ? 'danger-text strong' : 'strong'}>${sal ? eur(Math.abs(sal)) : 'in pari'}</dd></dl></div>` : nothing}
+          ${o.consegne.length ? html`<div><h3 style="margin-bottom:var(--space-2)">Consegne</h3>${lista(o.consegne.map((c) => riga({
+            t: fdt(c.data_consegna), m: c.righe.map((x) => `${nomeVariante(o.righe.find((r) => r.id === x.comanda_riga_id)?.variante_id ?? 0)} × ${x.quantita}`).join(', ') })))}</div>` : nothing}
+          ${o.pagamenti.length ? html`<div><h3 style="margin-bottom:var(--space-2)">Pagamenti</h3>${lista(o.pagamenti.map((x) => riga({
+            t: `${Number(x.importo) > 0 ? '+' : ''}${eur(Number(x.importo))}`, m: `${fd(x.data_movimento)}${x.note ? ` · ${x.note}` : ''}` })))}</div>` : nothing}
+        </aside>
+      </div>`;
+    },
+  };
+}
+
