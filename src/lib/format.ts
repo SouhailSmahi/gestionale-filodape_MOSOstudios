@@ -14,6 +14,10 @@ export const eurCost = (v: number | null | undefined): string =>
 export const num = (v: number | null | undefined, d = 1): string =>
   v == null ? '—' : new Intl.NumberFormat('it-IT', { maximumFractionDigits: d }).format(Math.round(v * 10 ** d) / 10 ** d);
 
+/** Numero da mettere in un campo da modificare: virgola decimale, senza separatore delle migliaia. */
+export const numCampo = (v: number | null | undefined, d = 2): string =>
+  v == null ? '' : new Intl.NumberFormat('it-IT', { maximumFractionDigits: d, useGrouping: false }).format(Number(v));
+
 export const kg = (v: number | null | undefined, d = 1): string => `${num(v ?? 0, d)} kg`;
 
 /** Quantità di un articolo nella sua unità, con le confezioni se utili: "22 kg (1,5 × cartone da 15 kg)". */
@@ -56,7 +60,10 @@ export const fromLocal = (s: string) => new Date(s).toISOString();
 
 /** Numero scritto dall'utente: accetta la virgola. null se vuoto o non valido. */
 export function parseNum(v: unknown): number | null {
-  const s = String(v ?? '').trim().replace(/\s/g, '').replace(',', '.');
+  let s = String(v ?? '').trim().replace(/\s/g, '');
+  // "1.500" o "12.000,50": il punto separa le migliaia (uso italiano)
+  if (/^-?[1-9]\d{0,2}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g, '');
+  s = s.replace(',', '.');
   if (!s) return null;
   const x = Number(s);
   return Number.isFinite(x) ? x : null;

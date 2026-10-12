@@ -6,7 +6,7 @@ import { aggiorna, ricarica, stato } from '../app';
 import * as api from '../lib/api';
 import { catalogo, nomeBreve, nomeVariante } from '../lib/catalogo';
 import { rif, carica } from '../lib/rif';
-import { eur, fd, fdl, isoDate, num, parseNum } from '../lib/format';
+import { eur, fd, fdl, isoDate, parseNum, numCampo } from '../lib/format';
 import { messaggioErrore } from '../lib/errors';
 import { icon } from '../ui/icons';
 import { Modulo, campo, scelta, area, testa, toast, chiedi, erroreModulo, bottoneInvio, riga, lista, kpi, badge, finestra, segmenti } from '../ui/kit';
@@ -92,7 +92,7 @@ export function attrezzatura(): Pagina {
   function modulo(c?: T.Cespite) {
     const cat0 = rif.categorieCespite[0];
     const m = new Modulo({ nome: c?.nome ?? '', categoria: String(c?.categoria_id ?? cat0?.id ?? ''), quantita: String(c?.quantita ?? 1), anno: String(c?.anno_acquisto ?? anno),
-      prezzo: c ? num(Number(c.prezzo), 2) : '', contributo: c && Number(c.contributo) ? num(Number(c.contributo), 2) : '', vita: String(c?.vita_utile ?? cat0?.vita_utile_default ?? 10), note: c?.note ?? '' });
+      prezzo: c ? numCampo(Number(c.prezzo), 2) : '', contributo: c && Number(c.contributo) ? numCampo(Number(c.contributo), 2) : '', vita: String(c?.vita_utile ?? cat0?.vita_utile_default ?? 10), note: c?.note ?? '' });
     const f = finestra(() => html`<h2>${c ? 'Modifica bene' : 'Nuovo bene'}</h2>
       ${erroreModulo(m)}
       ${campo(m, 'nome', 'Nome', { placeholder: 'Smielatore 4 telaini' })}

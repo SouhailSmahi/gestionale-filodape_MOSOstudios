@@ -3,7 +3,7 @@ import { html, nothing } from 'lit-html';
 import type { Pagina } from '../app';
 import { aggiorna, ricarica, stato } from '../app';
 import * as api from '../lib/api';
-import { num, parseNum } from '../lib/format';
+import { parseNum, numCampo } from '../lib/format';
 import { AppError } from '../lib/errors';
 import { Modulo, campo, testa, toast, riga, lista, finestra, erroreModulo, bottoneInvio, chiedi, badge, spunta } from '../ui/kit';
 import type { Impostazioni, Profilo } from '../lib/types';
@@ -78,7 +78,7 @@ export function impostazioni(): Pagina {
     async carica() {
       if (!admin) return;
       [utenti, imp] = await Promise.all([api.utenti(), api.impostazioni()]);
-      mi.v = { valore_ora: num(imp.valore_ora, 2), tariffa: num(imp.tariffa_auto_km, 3), netto: imp.costo_netto };
+      mi.v = { valore_ora: numCampo(imp.valore_ora, 2), tariffa: numCampo(imp.tariffa_auto_km, 3), netto: imp.costo_netto };
       mi.pulito();
     },
     modificata: () => admin && mi.modificato(),

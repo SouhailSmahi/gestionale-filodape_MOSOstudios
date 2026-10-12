@@ -6,7 +6,7 @@ import { aggiorna, ricarica, vai } from '../app';
 import * as api from '../lib/api';
 import { rif, carica, formatiDi, nomePostazione, mezzo, articolo, invalida } from '../lib/rif';
 import { catalogo, variante } from '../lib/catalogo';
-import { eur, eurCost, fd, num, kg, durata, isoDate, isoLocal, fromLocal, parseNum, qtyArticolo } from '../lib/format';
+import { eur, eurCost, fd, num, kg, durata, isoDate, isoLocal, fromLocal, parseNum, qtyArticolo, numCampo } from '../lib/format';
 import { AppError, messaggioErrore } from '../lib/errors';
 import { icon } from '../ui/icons';
 import { Modulo, campo, scelta, area, testa, toast, erroreModulo, bottoneInvio, riga, lista, kpi, badge, finestra, type Opzione } from '../ui/kit';
@@ -162,9 +162,9 @@ export function schedaLotto(p: Record<string, string>): Pagina {
   }
 
   function modificaEvento(e: T.EventoLotto) {
-    const m = new Modulo({ data: isoLocal(new Date(e.data)), km: e.km != null ? num(Number(e.km), 1) : '', costo: e.costo_terzi != null ? num(Number(e.costo_terzi), 2) : '',
+    const m = new Modulo({ data: isoLocal(new Date(e.data)), km: e.km != null ? numCampo(Number(e.km), 1) : '', costo: e.costo_terzi != null ? numCampo(Number(e.costo_terzi), 2) : '',
       arnie: e.arnie != null ? String(e.arnie) : '', ore: e.minuti ? String(Math.floor(e.minuti / 60)) : '', minuti: e.minuti ? String(e.minuti % 60) : '', note: e.note ?? '',
-      bar: e.bariloni.map((b) => num(Number(b.kg), 3)) as string[] });
+      bar: e.bariloni.map((b) => numCampo(Number(b.kg), 3)) as string[] });
     const f = finestra(() => html`<h2>Modifica tappa</h2>
       <p class="sub" style="margin-bottom:var(--space-4)">${testoEvento(e, l)[0]}</p>
       ${erroreModulo(m)}
@@ -299,6 +299,9 @@ export function tappa(p: Record<string, string>): Pagina {
         if (m.v.postazione === '__nuova') {
           const r = await api.salva('postazioni', { nome: m.v.nuova.trim(), km_abituali: via.km }) as { id: number };
           pid = r.id; invalida('postazioni');
+          // se poi lo spostamento non va a buon fine, al nuovo tentativo la postazione è già in lista
+          rif.postazioni.push({ id: pid, nome: m.v.nuova.trim(), localita: null, km_abituali: via.km, arnie: null, note: null, archiviato: false });
+          m.v.postazione = String(pid); m.v.nuova = '';
         }
         await api.registraEvento({ lotto: id, tipo: 'spostamento', data, postazione: pid, mezzo: via.mezzo, km: via.km, costo_terzi: via.costo_terzi, minuti, arnie: parseNum(m.v.arnie), note: m.v.note.trim() });
       });
@@ -346,7 +349,7 @@ export function tappa(p: Record<string, string>): Pagina {
         const pos = rif.postazioni.filter((x) => !x.archiviato);
         m.v.postazione = pos.length ? String(pos[0].id) : '__nuova';
         m.v.mezzo = String(rif.mezzi.find((x) => x.tipo === 'dedicato' && !x.archiviato)?.id ?? rif.mezzi[0]?.id ?? '');
-        if (pos[0]?.km_abituali != null) m.v.km = num(Number(pos[0].km_abituali), 1);
+        if (pos[0]?.km_abituali != null) m.v.km = numCampo(Number(pos[0].km_abituali), 1);
       }
       if (tipo === 'chiusura') m.v.data = isoDate() + 'T12:00';
       m.pulito();
@@ -354,7 +357,7 @@ export function tappa(p: Record<string, string>): Pagina {
     vista() {
       const pos = rif.postazioni.filter((x) => !x.archiviato);
       // proponi i km abituali quando cambia la postazione (finché l'utente non li tocca)
-      const onPost = (v: string) => { const x = pos.find((q) => String(q.id) === v); if (!kmToccati && x?.km_abituali != null) { m.v.km = num(Number(x.km_abituali), 1); aggiorna(); } };
+      const onPost = (v: string) => { const x = pos.find((q) => String(q.id) === v); if (!kmToccati && x?.km_abituali != null) { m.v.km = numCampo(Number(x.km_abituali), 1); aggiorna(); } };
       const manc = mancanti();
       const campoVasetti = (label: string) => html`<fieldset style="border:0;padding:0;margin:0 0 var(--space-4)"><legend class="label" style="margin-bottom:6px">${label}</legend>
         <div class="row-fields">${formati().map((v) => html`<div class="field" style="margin:0"><label for=${`pz${v.id}`}>${v.formato}</label>

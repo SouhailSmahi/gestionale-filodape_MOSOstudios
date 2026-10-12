@@ -6,7 +6,7 @@ import { aggiorna, ricarica } from '../app';
 import * as api from '../lib/api';
 import { rif, carica, invalida, categoria } from '../lib/rif';
 import { catalogo, invalidaCatalogo, grammi } from '../lib/catalogo';
-import { eur, eurCost, num, parseNum, capitalizza } from '../lib/format';
+import { eur, eurCost, num, parseNum, capitalizza, numCampo } from '../lib/format';
 import { messaggioErrore } from '../lib/errors';
 import { icon } from '../ui/icons';
 import { Modulo, campo, scelta, area, testa, toast, chiedi, erroreModulo, bottoneInvio, riga, lista, kpi, segmenti, finestra } from '../ui/kit';
@@ -74,7 +74,7 @@ export function anagrafiche(q: URLSearchParams): Pagina {
         }, 'primary')}</div>`);
   }
   function modPostazione(p?: T.Postazione) {
-    const m = new Modulo({ nome: p?.nome ?? '', localita: p?.localita ?? '', km: p?.km_abituali != null ? num(Number(p.km_abituali), 1) : '', arnie: p?.arnie != null ? String(p.arnie) : '', note: p?.note ?? '' });
+    const m = new Modulo({ nome: p?.nome ?? '', localita: p?.localita ?? '', km: p?.km_abituali != null ? numCampo(Number(p.km_abituali), 1) : '', arnie: p?.arnie != null ? String(p.arnie) : '', note: p?.note ?? '' });
     const f = finestra(() => html`<h2>${p ? 'Modifica postazione' : 'Nuova postazione'}</h2>${erroreModulo(m)}
       <div class="row-fields">${campo(m, 'nome', 'Nome', { placeholder: 'Robinieto di Porpetto' })}${campo(m, 'localita', 'Località')}</div>
       <div class="row-fields">${campo(m, 'km', 'Km abituali, andata e ritorno', { numero: true, unita: 'km' })}${campo(m, 'arnie', 'Arnie in postazione', { numero: true, inputmode: 'numeric' })}</div>
@@ -93,7 +93,7 @@ export function anagrafiche(q: URLSearchParams): Pagina {
         }, 'primary')}</div>`);
   }
   function modMezzo(x?: T.Mezzo) {
-    const m = new Modulo({ nome: x?.nome ?? '', tipo: x?.tipo ?? 'dedicato', tariffa: x?.tariffa_km != null ? num(Number(x.tariffa_km), 3) : '0,15', note: x?.note ?? '' });
+    const m = new Modulo({ nome: x?.nome ?? '', tipo: x?.tipo ?? 'dedicato', tariffa: x?.tariffa_km != null ? numCampo(Number(x.tariffa_km), 3) : '0,15', note: x?.note ?? '' });
     const f = finestra(() => html`<h2>${x ? 'Modifica mezzo' : 'Nuovo mezzo'}</h2>${erroreModulo(m)}
       ${campo(m, 'nome', 'Nome', { placeholder: 'Fiorino' })}
       ${scelta(m, 'tipo', 'Come si calcola il costo', [{ v: 'dedicato', l: 'Dedicato alle api: costo dai rifornimenti' }, { v: 'personale', l: 'Uso misto: tariffa al km' }, { v: 'terzi', l: 'Di altri: costo per viaggio' }])}
@@ -167,7 +167,7 @@ export function anagraficaArticoli(q: URLSearchParams): Pagina {
   function modArticolo(a?: T.Articolo) {
     const usato = !!a && spese.some((s) => s.articolo_id === a.id);
     const m = new Modulo({ nome: a?.nome ?? '', cat: String(a?.categoria_id ?? rif.categorie.find((c) => c.codice === 'altro')?.id ?? ''), unita: a?.unita ?? 'pz',
-      scorta: a?.scorta_minima != null ? num(Number(a.scorta_minima), 3) : '', codice: a?.codice ?? '', confNome: '', confQta: '' });
+      scorta: a?.scorta_minima != null ? numCampo(Number(a.scorta_minima), 3) : '', codice: a?.codice ?? '', confNome: '', confQta: '' });
     const f = finestra(() => {
       const c = rif.categorie.find((x) => String(x.id) === m.v.cat);
       return html`<h2>${a ? 'Modifica articolo' : 'Nuovo articolo'}</h2>${erroreModulo(m)}
@@ -201,7 +201,7 @@ export function anagraficaArticoli(q: URLSearchParams): Pagina {
   }
 
   function modDistinta(v: T.Variante, nome: string) {
-    const righe = v.distinta.map((d) => ({ a: String(d.articolo_id), q: num(Number(d.quantita), 3) }));
+    const righe = v.distinta.map((d) => ({ a: String(d.articolo_id), q: numCampo(Number(d.quantita), 3) }));
     const comp = rif.articoli.filter((a) => !a.archiviato && a.magazzino === 'materiali');
     let err = '', busy = false;
     const f = finestra(() => html`<h2>Distinta: ${nome}</h2>

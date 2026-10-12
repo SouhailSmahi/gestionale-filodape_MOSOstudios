@@ -14,6 +14,8 @@ type Valori = Record<string, string | boolean | string[]>;
 /** Stato di un modulo: valori scritti, errori per campo, invio in corso. */
 export class Modulo<V extends Valori> {
   v: V; err: Partial<Record<keyof V | '_', string>> = {}; busy = false; private iniziale: string;
+  /** l'errore generale viene dal server (va tolto al nuovo tentativo) o da un controllo (va rispettato) */
+  private erroreServer = false;
   constructor(v: V) { this.v = v; this.iniziale = JSON.stringify(v); }
   set<K extends keyof V>(k: K, val: V[K]) { this.v[k] = val; if (this.err[k]) { delete this.err[k]; } aggiorna(); }
   errore(k: keyof V | '_', msg: string) { this.err[k] = msg; }
@@ -24,11 +26,11 @@ export class Modulo<V extends Valori> {
   /** Esegue il salvataggio mostrando l'attesa e l'errore in chiaro. Restituisce true se è andato bene. */
   async invia(fn: () => Promise<unknown>): Promise<boolean> {
     if (this.busy) return false;
-    delete this.err._;
+    if (this.erroreServer) { delete this.err._; this.erroreServer = false; }
     if (!this.ok) { aggiorna(); scorriAErrore(); return false; }
     this.busy = true; aggiorna();
     try { await fn(); this.pulito(); return true; }
-    catch (e) { this.err._ = messaggioErrore(e); toast(this.err._, true); scorriAErrore(); return false; }
+    catch (e) { this.err._ = messaggioErrore(e); this.erroreServer = true; toast(this.err._, true); scorriAErrore(); return false; }
     finally { this.busy = false; aggiorna(); }
   }
 }

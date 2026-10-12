@@ -45,4 +45,4 @@ jobs:
           psql -v ON_ERROR_STOP=1 -q -d filodape -f supabase/test/01_dati_demo.sql
           psql -q -d filodape -f supabase/test/02_test_funzionali.sql | tee esito.txt
           if grep -q '^FAIL' esito.txt; then echo "Alcuni test non sono passati"; exit 1; fi
-          test "$(grep -c '^ok' esito.txt)" -ge 60
+          test "$(grep -c '^ok' esito.txt)" -ge 65

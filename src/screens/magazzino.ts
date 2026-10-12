@@ -4,7 +4,7 @@ import type { Pagina } from '../app';
 import { aggiorna, ricarica } from '../app';
 import * as api from '../lib/api';
 import { catalogo, nomeBreve, gruppo } from '../lib/catalogo';
-import { eur, eurCost, fd, kg, num, parseNum, qtyArticolo } from '../lib/format';
+import { eur, eurCost, fd, kg, num, parseNum, qtyArticolo, numCampo } from '../lib/format';
 import { Modulo, campo, scelta, testa, toast, erroreModulo, bottoneInvio, riga, lista, kpi, segmenti, finestra } from '../ui/kit';
 import type * as T from '../lib/types';
 
@@ -35,7 +35,7 @@ function rettifica(o: { titolo: string; unita: string; disponibile: number; maga
 }
 
 export function prezzo(v: T.Disponibilita) {
-  const m = new Modulo({ prezzo: v.prezzo_corrente != null ? num(v.prezzo_corrente, 2) : '' });
+  const m = new Modulo({ prezzo: v.prezzo_corrente != null ? numCampo(v.prezzo_corrente, 2) : '' });
   let storico: { prezzo: number; valido_dal: string; valido_al: string | null }[] = [];
   const f = finestra(() => html`<h2>Prezzo: ${nomeBreve(v.prodotto, v.formato)}</h2>
     <p class="sub" style="margin-bottom:var(--space-4)">Il nuovo prezzo vale da adesso: gli ordini già inseriti non cambiano.</p>
@@ -127,7 +127,7 @@ export function magazzino(q: URLSearchParams): Pagina {
         corpo = html`<p class="sub" style="margin-bottom:var(--space-4)">Il miele smielato e non ancora invasettato, lotto per lotto. Il valore usa il costo al kg del lotto.</p>
           ${perTipo.size ? html`<div class="kpis compact" style="margin-bottom:var(--space-5)">${[...perTipo].map(([t, k]) => kpi(t, kg(k)))}</div>` : nothing}
           ${lista(el.map((s) => riga({ t: s.codice, m: `${s.stato === 'chiuso' ? 'Residuo di un lotto chiuso' : 'Lotto aperto'} · valore ${eur(Number(s.valore))}`, v: kg(Number(s.kg), 2),
-            extra: s.stato === 'chiuso' ? html`<button class="btn sm quiet" @click=${() => rettifica({ titolo: s.codice, unita: 'kg', disponibile: Number(s.kg), magazzino: 'miele', motivi, esempio: `-${num(Number(s.kg), 2)}`,
+            extra: s.stato === 'chiuso' ? html`<button class="btn sm quiet" @click=${() => rettifica({ titolo: s.codice, unita: 'kg', disponibile: Number(s.kg), magazzino: 'miele', motivi, esempio: `-${numCampo(Number(s.kg), 2)}`,
               salva: (x, mo, n) => api.rettificaMiele(s.lotto_id, x, mo, n) })}>Usato o scartato</button>` : html`<a class="btn sm" href=${`/produzione/lotti/${s.lotto_id}`}>Apri</a>` })), 'Tutto il miele è invasettato.')}`;
       } else if (vista === 'materiali' || vista === 'apistiche') {
         corpo = vistaArticoli(vista);

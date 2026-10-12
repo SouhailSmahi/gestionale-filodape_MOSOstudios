@@ -37,9 +37,22 @@ select pg_temp.deve_fallire('staff non inserisce movimenti', 'insert into movime
 update comanda_righe set quantita_ordinata = 4 where comanda_id = :comanda_staff and variante_id = 2;
 select pg_temp.check('staff modifica finché in attesa', (select quantita_ordinata from comanda_righe where comanda_id = :comanda_staff and variante_id=2) = 4);
 
+select crea_comanda(null, '{"nome":"Lucia","cognome":"Prova"}', '[{"variante_id":2,"quantita":1}]') as da_annullare \gset
+update comande set stato = 'annullata', cliente_id = 1 where id = :da_annullare;
+select pg_temp.check('staff annulla la propria comanda', (select stato from comande where id = :da_annullare) = 'annullata');
+select pg_temp.check('staff non cambia il cliente', (select cliente_id from comande where id = :da_annullare) <> 1);
+select pg_temp.deve_fallire('staff non usa motivo_id', 'select motivo_id(''prodotti'', ''Prova staff'')', 'permission denied');
+reset role;
+update varianti_prodotto set attivo = false where codice_articolo = 'MIE-CAS-125';
+set role authenticated;
+select pg_temp.deve_fallire('staff non ordina prodotti archiviati', 'insert into comanda_righe (comanda_id, variante_id, quantita_ordinata) values (' || :comanda_staff || ', (select id from varianti_prodotto where codice_articolo = ''MIE-CAS-125''), 1)', 'non disponibile');
+reset role;
+update varianti_prodotto set attivo = true where codice_articolo = 'MIE-CAS-125';
+set role authenticated;
+
 -- ---------- ADMIN
 select pg_temp.as_user('admin');
-select pg_temp.check('notifica nuovo ordine + modifica', (select count(*) from notifiche where categoria in ('ordini','modifiche')) = 2);
+select pg_temp.check('notifiche: 2 nuovi ordini, modifica e annullamento', (select count(*) from notifiche where categoria in ('ordini','modifiche')) = 4);
 select conferma_comanda(:comanda_staff, 'confermata', current_date + 3);
 select pg_temp.as_user('staff');
 update comanda_righe set quantita_ordinata = 9 where comanda_id = :comanda_staff and variante_id = 2;
@@ -145,3 +158,7 @@ reset role;
 set role anon;
 select pg_temp.deve_fallire('anon niente tabelle', 'select * from clienti', 'permission denied');
 select pg_temp.deve_fallire('anon niente funzioni', 'select crea_comanda(1, null, ''[]'')', 'permission denied');
+
+-- ---------- struttura: ogni tabella ha la sicurezza per riga attiva
+reset role;
+select pg_temp.check('RLS attiva su tutte le tabelle', not exists (select 1 from pg_tables where schemaname = 'public' and not rowsecurity));

@@ -6,7 +6,7 @@ import { aggiorna, ricarica, vai } from '../app';
 import * as api from '../lib/api';
 import { rif, carica, invalida, categoria } from '../lib/rif';
 import { leggiBozza, salvaBozza, cancellaBozza } from '../lib/bozze';
-import { eur, eurCost, fd, isoDate, num, parseNum, qtyArticolo, capitalizza } from '../lib/format';
+import { eur, eurCost, fd, isoDate, num, parseNum, qtyArticolo, capitalizza, numCampo } from '../lib/format';
 import { messaggioErrore } from '../lib/errors';
 import { icon } from '../ui/icons';
 import { testa, toast, chiedi, Modulo, campo, erroreModulo, bottoneInvio, riga, lista, badge, finestra } from '../ui/kit';
@@ -143,7 +143,7 @@ export function schedaAcquisto(p: Record<string, string>): Pagina {
   const id = Number(p.id);
   let a: T.Acquisto; let cespiti: T.Cespite[] = [];
   function modificaRiga(r: T.Acquisto['righe'][number]) {
-    const m = new Modulo({ quantita: num(Number(r.quantita), 3), totale: num(Number(r.totale), 2), km: r.contachilometri ? String(r.contachilometri) : '' });
+    const m = new Modulo({ quantita: numCampo(Number(r.quantita), 3), totale: numCampo(Number(r.totale), 2), km: r.contachilometri ? String(r.contachilometri) : '' });
     const f = finestra(() => html`<h2>${r.articolo.nome}</h2>
       <p class="sub" style="margin-bottom:var(--space-4)">Correggendo la quantità, il magazzino si aggiorna da solo.</p>
       ${erroreModulo(m)}

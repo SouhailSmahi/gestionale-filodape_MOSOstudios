@@ -27,7 +27,11 @@ export async function login(username: string, password: string): Promise<void> {
   if (!u.includes('.')) throw new AppError('Il nome utente è nella forma nome.cognome (es. mario.rossi).');
   await q(sb.auth.signInWithPassword({ email: emailDa(u), password }));
 }
-export async function logout() { await sb.auth.signOut(); }
+export async function logout() {
+  await sb.auth.signOut();
+  // le bozze dei moduli (nomi e telefoni dei clienti) non restano sul dispositivo per chi entra dopo
+  try { Object.keys(localStorage).filter((k) => k.startsWith('filodape-bozza-')).forEach((k) => localStorage.removeItem(k)); } catch { /* niente */ }
+}
 export async function sessione() { return (await sb.auth.getSession()).data.session; }
 
 export async function mioProfilo(): Promise<T.Profilo | null> {
@@ -108,7 +112,9 @@ export const scadenze = () => q<T.Scadenza[]>(sb.from('v_scadenze_consegna').sel
 export const daFare = () => q<T.DaFare[]>(sb.from('v_da_fare').select('*'));
 export const notificheDaLeggere = () => q<{ categoria: string; da_leggere: number }[]>(sb.from('v_notifiche_da_leggere').select('*'));
 export async function preferenzeHome(): Promise<string[] | null> {
-  const r = await q<{ riquadri: string[] } | null>(sb.from('preferenze_home').select('riquadri').maybeSingle());
+  const s = await sessione();
+  if (!s) return null;
+  const r = await q<{ riquadri: string[] } | null>(sb.from('preferenze_home').select('riquadri').eq('utente_id', s.user.id).maybeSingle());
   return r?.riquadri ?? null;
 }
 export const salvaPreferenzeHome = (riquadri: string[]) =>
@@ -227,7 +233,10 @@ export const smielature = () => q<{ data: string; lotto: { codice: string; anno:
   sb.from('lotto_eventi').select('data, lotto:lotti(codice,anno,tipo:tipi_miele(nome)), bariloni:smielatura_bariloni(kg)').eq('tipo', 'smielatura'));
 export const kgSmielati = () => q<{ anno: number; tipo_miele: string; lotto: string; kg: number }[]>(sb.from('v_kg_smielati').select('*'));
 export const incassiCosti = () => q<{ anno: number; incassi: number; costi: number }[]>(sb.from('v_incassi_costi_anno').select('*').order('anno'));
-export const grafici = () => q<T.Grafico[]>(sb.from('grafici_utente').select('*').order('creato_il'));
+export async function grafici(): Promise<T.Grafico[]> {
+  const s = await sessione();
+  return s ? q(sb.from('grafici_utente').select('*').eq('utente_id', s.user.id).order('creato_il')) : [];
+}
 export const salvaGrafico = (g: Omit<T.Grafico, 'id' | 'creato_il' | 'utente_id'>) => q(sb.from('grafici_utente').insert(g));
 export const aggiornaGrafico = (id: number, v: Partial<T.Grafico>) => q(sb.from('grafici_utente').update(v).eq('id', id));
 export const eliminaGrafico = (id: number) => q(sb.from('grafici_utente').delete().eq('id', id));
