@@ -183,7 +183,10 @@ textarea.input { padding: var(--space-3) var(--space-4); min-height: 96px; resiz
 .list { background: var(--color-surface); border: var(--border-w) solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; }
 .item { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3) var(--space-4); border-top: var(--border-w) solid var(--color-border); }
 .item:first-child { border-top: 0; }
-.item .body { flex: 1; min-width: 0; }
+.item { flex-wrap: wrap; }
+.item .body { flex: 1 1 150px; min-width: 0; }
+.item > .btns { margin: 0; }
+@media (max-width: 520px) { .item > .btns { flex: 1 0 100%; justify-content: flex-end; } }
 .item .t { font-size: var(--fs-row); font-weight: var(--fw-bold); overflow-wrap: anywhere; }
 .item .m { font-size: var(--fs-small); color: var(--color-text-secondary); margin-top: 2px; overflow-wrap: anywhere; }
 .item .v { text-align: right; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; white-space: nowrap; }

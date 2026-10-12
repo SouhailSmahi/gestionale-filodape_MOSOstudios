@@ -147,6 +147,7 @@ export const ricalcolaTutti = () => rpc<number>('ricalcola_tutti_lotti');
 export const aggiornaEvento = (id: number, v: Partial<Pick<T.EventoLotto, 'data' | 'km' | 'minuti' | 'arnie' | 'costo_terzi' | 'note' | 'postazione_id' | 'mezzo_id'>>) =>
   q(sb.from('lotto_eventi').update(v).eq('id', id));
 export const aggiornaBarilone = (id: number, kg: number) => q(sb.from('smielatura_bariloni').update({ kg }).eq('id', id));
+export const costoKm = (anno: number, mezzo: number) => rpc<number>('costo_km', { p_anno: anno, p_mezzo: mezzo });
 export const quotaStagione = (anno: number) => q<T.QuotaStagione[]>(sb.rpc('quota_stagione', { p_anno: anno }) as unknown as PromiseLike<Res<T.QuotaStagione[]>>).then((r) => r[0]);
 
 export const attivita = (anno: number) => q<T.Attivita[]>(sb.from('attivita_stagione')

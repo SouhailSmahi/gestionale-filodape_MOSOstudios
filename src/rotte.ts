@@ -7,6 +7,8 @@ import { impostazioni } from './screens/impostazioni';
 import { home } from './screens/home';
 import { ordini, schedaOrdine } from './screens/ordini';
 import { andamento } from './screens/andamento';
+import { magazzino } from './screens/magazzino';
+import { produzione, schedaLotto, tappa, nuovaAttivita } from './screens/produzione';
 
 const prossimamente = (titolo: string, tab: string) => (): Pagina => ({
   titolo, tab, vista: () => html`<h1>${titolo}</h1><p class="sub">In costruzione.</p>`,
@@ -24,6 +26,16 @@ export const rotte: Rotta[] = [
   { path: '/ordini/nuovo', ruolo: 'admin', f: nuovoOrdine },
   { path: '/ordini/:id', ruolo: 'admin', f: schedaOrdine },
   { path: '/andamento', ruolo: 'admin', f: (_p, q) => andamento(q) },
-  { path: '/produzione', ruolo: 'admin', f: prossimamente('Produzione', 'produzione') },
-  { path: '/magazzino', ruolo: 'admin', f: prossimamente('Magazzino', 'magazzino') },
+  { path: '/produzione', ruolo: 'admin', f: produzione },
+  { path: '/produzione/attivita', ruolo: 'admin', f: nuovaAttivita },
+  { path: '/produzione/lotti/:id', ruolo: 'admin', f: schedaLotto },
+  { path: '/produzione/lotti/:id/:tappa', ruolo: 'admin', f: tappa },
+  { path: '/magazzino', ruolo: 'admin', f: (_p, q) => magazzino(q) },
+  { path: '/acquisti', ruolo: 'admin', f: prossimamente('Acquisti', 'acquisti') },
+  { path: '/mercato', ruolo: 'admin', f: prossimamente('Mercato', 'mercato') },
+  { path: '/attrezzatura', ruolo: 'admin', f: prossimamente('Attrezzatura', 'attrezzatura') },
+  { path: '/notifiche', ruolo: 'admin', f: prossimamente('Notifiche', 'notifiche') },
+  { path: '/anagrafiche', ruolo: 'admin', f: prossimamente('Anagrafiche', 'anagrafiche') },
+  { path: '/articoli', ruolo: 'admin', f: prossimamente('Anagrafica articoli', 'articoli') },
+  { path: '/altro', ruolo: 'admin', f: prossimamente('Altro', 'altro') },
 ];
