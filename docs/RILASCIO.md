@@ -11,6 +11,7 @@ Una volta sola. In tutto servono circa 45 minuti. Le chiavi e le password non va
 3. **Carica lo schema.** In *SQL Editor → New query* incolla ed esegui, nell'ordine:
    1. `supabase/migrations/20261001000000_schema_v03.sql`
    2. `supabase/migrations/20261012000000_ping_keepalive.sql`
+   3. `supabase/migrations/20261012000100_correzioni_revisione.sql`
 
    In alternativa, con la CLI: `supabase link --project-ref <ref>` e poi `supabase db push`.
 4. **Accesso di Filippo.**
