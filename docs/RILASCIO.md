@@ -12,6 +12,7 @@ Una volta sola. In tutto servono circa 45 minuti. Le chiavi e le password non va
    1. `supabase/migrations/20261001000000_schema_v03.sql`
    2. `supabase/migrations/20261012000000_ping_keepalive.sql`
    3. `supabase/migrations/20261012000100_correzioni_revisione.sql`
+   4. `supabase/migrations/20261014000000_permessi_funzioni_trigger.sql`
 
    In alternativa, con la CLI: `supabase link --project-ref <ref>` e poi `supabase db push`.
 4. **Accesso di Filippo.**
@@ -22,7 +23,7 @@ Una volta sola. In tutto servono circa 45 minuti. Le chiavi e le password non va
       values ('<User UID>', 'filippo.menossi', 'Filippo', 'Menossi', 'admin');
       ```
 5. **Funzione per gli utenti.**
-   - Da *Edge Functions → Deploy a new function → Via Editor*: nome `gestione-utenti`, incolla `supabase/functions/gestione-utenti/index.ts` e fai **Deploy**.
+   - Da *Edge Functions → Deploy a new function → Via Editor*: nome `gestione-utenti` (controlla poi nella lista che anche l'indirizzo, lo *slug*, sia `gestione-utenti`: l'editor a volte ne propone uno a caso), incolla `supabase/functions/gestione-utenti/index.ts` e fai **Deploy**.
    - Con la CLI: `supabase functions deploy gestione-utenti`.
 6. **Chiavi da annotare** (*Project Settings → API*, oppure *Connect*):
    - **Project URL**: `https://xxxx.supabase.co`;
@@ -115,5 +116,5 @@ Fai una prova di ripristino su un progetto di test almeno una volta, appena fini
 | Pagina bianca con "Configurazione mancante" | Mancano le variabili `VITE_…` su Cloudflare Pages: aggiungile in *Settings → Variables and Secrets* e ripubblica (*Deployments → Retry deployment*) |
 | "Nome utente o password non corretti" con dati giusti | L'utente non ha "Auto Confirm", oppure l'email non è `nome.cognome@utenti.filodape.it` |
 | L'utente entra ma vede "accesso disattivato" | Manca la riga in `profili`, oppure `attivo = false` |
-| "Operazione sugli utenti non riuscita" | La Edge Function `gestione-utenti` non è pubblicata |
+| "Operazione sugli utenti non riuscita" | La Edge Function non è pubblicata, oppure il suo indirizzo (slug) non è esattamente `gestione-utenti` |
 | Supabase in pausa | Il keep-alive non gira: controlla i segreti su GitHub |
