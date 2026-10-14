@@ -1,0 +1,48 @@
+# Controlla a ogni modifica che il codice compili e che lo schema del database
+# si carichi da zero e superi i test (PostgreSQL 16 con una simulazione minima di Supabase).
+name: Verifica
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://esempio.supabase.co
+          VITE_SUPABASE_ANON_KEY: chiave-di-prova
+
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Carica schema e test
+        run: |
+          set -e
+          createdb filodape
+          psql -v ON_ERROR_STOP=1 -q -d filodape -f supabase/test/00_stub_supabase.sql
+          for f in supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -q -d filodape -f "$f"; done
+          psql -v ON_ERROR_STOP=1 -q -d filodape -f supabase/test/01_dati_demo.sql
+          psql -q -d filodape -f supabase/test/02_test_funzionali.sql | tee esito.txt
+          if grep -q '^FAIL' esito.txt; then echo "Alcuni test non sono passati"; exit 1; fi
+          test "$(grep -c '^ok' esito.txt)" -ge 65

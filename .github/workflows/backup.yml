@@ -1,0 +1,44 @@
+# Backup notturno del database (il piano gratuito di Supabase non ne fa).
+# Il file è cifrato con una passphrase e conservato 30 giorni tra gli "artifact" di GitHub.
+# Segreti richiesti:
+#   SUPABASE_DB_URL     stringa di connessione "Session pooler" (Supabase → Connect), con la password del database
+#   BACKUP_PASSPHRASE   frase lunga a piacere: serve per aprire il backup, conservala anche fuori da GitHub
+# Per ripristinare: vedi docs/RILASCIO.md, sezione "Backup e ripristino".
+name: Backup notturno
+
+on:
+  schedule:
+    - cron: '43 1 * * *'
+  workflow_dispatch:
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Installa il client PostgreSQL 17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -sSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
+      - name: Esporta e cifra
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          giorno=$(date -u +%Y-%m-%d)
+          # schema public (dati e logica) + utenti di accesso (auth.users), senza le parti interne di Supabase
+          /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" --no-owner --no-privileges --schema=public --format=custom -f public.dump
+          /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" --no-owner --no-privileges --data-only --table=auth.users --format=custom -f auth_users.dump
+          tar czf "filodape-$giorno.tar.gz" public.dump auth_users.dump
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$PASS" --symmetric --cipher-algo AES256 "filodape-$giorno.tar.gz"
+          ls -la "filodape-$giorno.tar.gz.gpg"
+          echo "FILE=filodape-$giorno.tar.gz.gpg" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backup-${{ github.run_id }}
+          path: ${{ env.FILE }}
+          retention-days: 30
+          if-no-files-found: error

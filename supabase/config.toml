@@ -1,0 +1,7 @@
+# Configurazione minima per la Supabase CLI (collegamento e migrazioni).
+# Il progetto vero si collega con:  supabase link --project-ref <riferimento del progetto>
+project_id = "gestionale-filodape"
+
+[functions.gestione-utenti]
+# il controllo del token lo fa la funzione stessa (deve sapere chi chiama)
+verify_jwt = true
