@@ -44,20 +44,27 @@ Poi in *Actions* lancia a mano **Keep-alive Supabase** e **Backup notturno** (*R
 - **Keep-alive** gira ogni 2 giorni e impedisce che Supabase metta in pausa il progetto dopo 7 giorni di inattività.
 - **Backup** gira ogni notte e conserva 30 giorni di copie cifrate.
 
-## 3. App (Netlify)
+## 3. App (Cloudflare Pages)
 
-1. Crea un account Netlify **nuovo**, separato da quello del sito filodape.it.
-   - Il piano gratuito ha 300 crediti al mese, condivisi tra i siti dello stesso account.
-   - Ogni pubblicazione ne consuma 15. Se i crediti finiscono, si fermano tutti i siti dell'account.
-2. *Add new site → Import an existing project → GitHub* e scegli questo repository. Branch di pubblicazione: **main**. Il resto lo legge da `netlify.toml`.
-3. In *Site configuration → Environment variables* aggiungi:
+Usiamo Cloudflare Pages invece di Netlify. Il piano gratuito ha 500 pubblicazioni al mese e traffico illimitato, e non ha crediti che, finendo, mettono in pausa i siti. Il sito filodape.it resta su Netlify e i due non si toccano.
+
+1. Crea un account gratuito su **dash.cloudflare.com**. Non serve un dominio.
+2. Vai in *Workers & Pages → Create → Pages → Connect to Git*. Collega GitHub e scegli questo repository.
+3. Impostazioni di build:
+   - **Production branch:** `main`
+   - **Framework preset:** None
+   - **Build command:** `npm run build`
+   - **Build output directory:** `dist`
+4. In *Environment variables (advanced)* aggiungi:
    - `VITE_SUPABASE_URL`: Project URL;
    - `VITE_SUPABASE_ANON_KEY`: anon key;
    - `VITE_LOGIN_DOMAIN`: `utenti.filodape.it`.
-4. Per risparmiare crediti, in *Site configuration → Build & deploy*:
-   - disattiva le **Deploy Previews** sulle pull request;
-   - lascia la pubblicazione automatica solo per `main`.
-5. **Deploy**, poi apri l'indirizzo e prova l'accesso di Filippo. Il nome del sito si cambia in *Domain management*, es. `gestionale-filodape.netlify.app`.
+
+   La versione di Node la legge da `.node-version`.
+5. **Save and Deploy.** L'indirizzo sarà del tipo `gestionale-filodape.pages.dev`; il nome lo decidi al punto 2.
+6. Apri l'indirizzo e prova l'accesso di Filippo.
+
+Il resto della configurazione (indirizzi delle pagine, intestazioni di sicurezza, cache) è già nel progetto, nel file `public/_headers`.
 
 ## 4. Primo avvio con Filippo (dati iniziali)
 
@@ -81,7 +88,7 @@ Va fatto insieme, dal computer, in quest'ordine:
 
 ## Aggiornamenti successivi
 
-- Codice: una pull request su `main`; il workflow **Verifica** deve essere verde. Al merge, Netlify ripubblica da solo.
+- Codice: una pull request su `main`; il workflow **Verifica** deve essere verde. Al merge, Cloudflare Pages ripubblica da solo.
 - Database: **non** si modifica il file di schema già caricato. Si aggiunge un nuovo file in `supabase/migrations/` (es. `20261120000000_descrizione.sql`) e lo si esegue nel SQL Editor (o `supabase db push`).
 
 ## Backup e ripristino
@@ -104,7 +111,8 @@ Fai una prova di ripristino su un progetto di test almeno una volta, appena fini
 
 | Sintomo | Causa probabile |
 |---|---|
-| Pagina bianca con "Configurazione mancante" | Mancano le variabili `VITE_…` su Netlify: aggiungile e ripubblica |
+| "Pagina non trovata" aprendo un indirizzo come `/ordini` | Nel progetto c'è un file `404.html`: va tolto, perché Cloudflare usa `index.html` per tutte le pagine solo se quel file non c'è |
+| Pagina bianca con "Configurazione mancante" | Mancano le variabili `VITE_…` su Cloudflare Pages: aggiungile in *Settings → Variables and Secrets* e ripubblica (*Deployments → Retry deployment*) |
 | "Nome utente o password non corretti" con dati giusti | L'utente non ha "Auto Confirm", oppure l'email non è `nome.cognome@utenti.filodape.it` |
 | L'utente entra ma vede "accesso disattivato" | Manca la riga in `profili`, oppure `attivo = false` |
 | "Operazione sugli utenti non riuscita" | La Edge Function `gestione-utenti` non è pubblicata |

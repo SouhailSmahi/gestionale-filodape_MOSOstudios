@@ -15,7 +15,7 @@ Funziona da telefono (installabile come app) e da computer (browser).
 | Pezzo | Dove | Costo |
 |---|---|---|
 | Database, accessi, funzioni server | Supabase (regione Frankfurt) | piano gratuito |
-| App web (PWA) | Netlify, account separato dal sito filodape.it | piano gratuito |
+| App web (PWA) | Cloudflare Pages (il sito filodape.it resta su Netlify, separato) | piano gratuito |
 | Codice, controlli automatici, keep-alive, backup | GitHub + Actions | gratuito |
 
 Per mettere in linea l'app la prima volta: **[docs/RILASCIO.md](docs/RILASCIO.md)**.
