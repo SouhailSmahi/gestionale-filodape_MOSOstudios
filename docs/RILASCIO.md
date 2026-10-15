@@ -13,6 +13,7 @@ Una volta sola. In tutto servono circa 45 minuti. Le chiavi e le password non va
    2. `supabase/migrations/20261012000000_ping_keepalive.sql`
    3. `supabase/migrations/20261012000100_correzioni_revisione.sql`
    4. `supabase/migrations/20261014000000_permessi_funzioni_trigger.sql`
+   5. `supabase/migrations/20261015000000_ordini_per_cliente.sql`
 
    In alternativa, con la CLI: `supabase link --project-ref <ref>` e poi `supabase db push`.
 4. **Accesso di Filippo.**

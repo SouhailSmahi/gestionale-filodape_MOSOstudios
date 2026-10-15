@@ -14,7 +14,7 @@ export interface Cliente extends ClienteBreve { tipo: 'privato' | 'azienda'; tel
 
 export interface MiaComanda {
   id: number; creata_il: string; creata_da: string; cliente: string; stato: StatoComanda;
-  data_consegna_indicativa: string | null; note: string | null; articoli: string | null;
+  data_consegna_indicativa: string | null; note: string | null; articoli: string | null; cliente_id: number;
 }
 
 export interface RigaComanda { id: number; variante_id: number; quantita_ordinata: number; quantita_evasa: number; prezzo_unitario_applicato: number | null }
