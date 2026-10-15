@@ -7,6 +7,7 @@ import { eur, eur0, num, meseBreve, fd } from '../lib/format';
 import { messaggioErrore } from '../lib/errors';
 import { grafLinee, grafBarre, grafOrizzontale } from '../ui/charts';
 import { HOME_DEF } from './home';
+import { statoFatturato, caricaFatturato, schedaFatturato } from './fatturato';
 import { testa, toast, chiedi, Modulo, scelta } from '../ui/kit';
 import type { Grafico, Lotto, Spesa, Vendita } from '../lib/types';
 
@@ -93,6 +94,7 @@ export function vistaGrafico(id: string, g: Def, d: Dati): TemplateResult {
 export function andamento(q: URLSearchParams): Pagina {
   let d: Dati; let grafici: Grafico[] = []; let home: string[] = []; let anno = Number(q.get('anno')) || new Date().getFullYear();
   let articolo = 0;
+  const fatt = statoFatturato();
   let builder: Modulo<{ misura: string; divisione: string; anno: string }> | null = null;
 
   const venditeMese = (y: number) => Array.from({ length: 12 }, (_, m) =>
@@ -108,7 +110,7 @@ export function andamento(q: URLSearchParams): Pagina {
 
   return {
     titolo: 'Andamento', tab: 'andamento',
-    async carica() { let h: string[] | null; [d, grafici, h] = await Promise.all([caricaDati(), api.grafici(), api.preferenzeHome()]); home = h ?? [...HOME_DEF]; },
+    async carica() { let h: string[] | null; [d, grafici, h] = await Promise.all([caricaDati(), api.grafici(), api.preferenzeHome(), caricaFatturato(fatt)]); home = h ?? [...HOME_DEF]; },
     vista() {
       const anni = anniDi(d);
       if (!anni.includes(anno)) anno = anni[anni.length - 1];
@@ -134,6 +136,7 @@ export function andamento(q: URLSearchParams): Pagina {
       ${testa('Andamento', { sub: 'Come sta andando, anno per anno. Tocca o passa sopra i grafici per vedere i valori. I primi anni avranno pochi dati: i confronti diventano utili col tempo.',
         azioni: html`<button class="btn" @click=${() => { builder = builder ? null : new Modulo({ misura: 'incassi', divisione: 'tipo_miele', anno: String(anno) }); aggiorna(); }}>${builder ? 'Chiudi' : '+ Nuovo grafico'}</button>` })}
       ${builder ? vistaBuilder(builder, d, anni, salvaGrafico) : nothing}
+      ${schedaFatturato(fatt)}
       <div class="seg" role="group" aria-label="Anno">${anni.map((y) => html`<button aria-pressed=${y === anno ? 'true' : 'false'} @click=${() => { anno = y; history.replaceState(history.state, '', `/andamento?anno=${y}`); aggiorna(); }}>${y}</button>`)}</div>
       <div class="cols">
         <section class="card"><h3>Vendite per mese</h3><p class="small">Incassato da clienti e mercati, ${anno}${prec ? ` rispetto al ${anno - 1}` : ''}</p>
