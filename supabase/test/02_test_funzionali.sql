@@ -173,6 +173,35 @@ select conferma_comande(array[:gc]::bigint[], 'in_produzione', current_date + 9)
 select pg_temp.deve_fallire('consegna in blocco senza merce', 'select consegna_comande(array[' || :gc || ']::bigint[])', 'Merce pronta insufficiente');
 select pg_temp.check('nessuna consegna parziale dopo il rifiuto', (select quantita_evasa from comanda_righe where comanda_id = :gc) = 0);
 
+-- fatturato per anno: manuale fino al 2025, automatico dal 2026
+select pg_temp.as_user('admin');
+select imposta_fatturato_storico(2025, 8000, 'indicativo, dai conti di Filippo');
+select pg_temp.check('2025 scritto a mano', (select venduto from v_fatturato_anni where anno = 2025 and fonte = 'manuale') = 8000);
+select imposta_fatturato_storico(2025, 8200.456, null);
+select pg_temp.check('correzione: nuovo valore arrotondato', (select importo from fatturato_storico where anno = 2025) = 8200.46);
+select pg_temp.check('correzione registrata con il valore di prima', (select count(*) from fatturato_storico_modifiche where anno = 2025) = 2
+                     and (select importo_prima from fatturato_storico_modifiche where anno = 2025 order by id desc limit 1) = 8000);
+select pg_temp.deve_fallire('2026 non si scrive a mano', 'select imposta_fatturato_storico(2026, 100)', 'lo calcola l''app');
+select pg_temp.deve_fallire('importo negativo rifiutato', 'select imposta_fatturato_storico(2024, -1)', 'negativo');
+select pg_temp.deve_fallire('niente scritture dirette', 'insert into fatturato_storico (anno, importo) values (2023, 1)', 'permission denied');
+select pg_temp.check('anno in corso calcolato dagli ordini confermati',
+  (select venduto_ordini from v_fatturato_anni where fonte = 'automatico' and anno = extract(year from now() at time zone 'Europe/Rome')::int)
+  = (select coalesce(sum(cr.quantita_ordinata * coalesce(cr.prezzo_unitario_applicato, 0)), 0) from comande c join comanda_righe cr on cr.comanda_id = c.id
+      where c.stato not in ('annullata', 'in_attesa_conferma') and extract(year from c.creata_il at time zone 'Europe/Rome') = extract(year from now() at time zone 'Europe/Rome')));
+select venduto as v_prima from v_fatturato_anni where fonte = 'automatico' and anno = extract(year from now() at time zone 'Europe/Rome')::int \gset
+select crea_comanda((select id from clienti limit 1), null, '[{"variante_id":2,"quantita":3}]') as fz \gset
+select pg_temp.check('ordine da confermare non conta', (select venduto from v_fatturato_anni where fonte = 'automatico' and anno = extract(year from now() at time zone 'Europe/Rome')::int) = :v_prima);
+select conferma_comande(array[:fz]::bigint[], 'confermata', current_date + 1);
+select pg_temp.check('ordine confermato conta subito, anche senza consegna', (select venduto from v_fatturato_anni where fonte = 'automatico' and anno = extract(year from now() at time zone 'Europe/Rome')::int)
+                     = :v_prima + 3 * (select prezzo_unitario_applicato from comanda_righe where comanda_id = :fz));
+select pg_temp.as_user('staff');
+select pg_temp.check('staff non vede il fatturato', (select count(*) from v_fatturato_anni) = 0 and (select count(*) from fatturato_storico) = 0);
+select pg_temp.deve_fallire('staff non modifica il fatturato', 'select imposta_fatturato_storico(2025, 1)', 'Solo l''amministratore');
+select pg_temp.as_user('admin');
+select imposta_fatturato_storico(2025, null);
+select pg_temp.check('valore tolto, modifica registrata', not exists (select 1 from fatturato_storico where anno = 2025)
+                     and (select count(*) from fatturato_storico_modifiche where anno = 2025) = 3);
+
 -- utente disattivato
 reset role;
 update profili set attivo = false where username = 'anna.menossi';

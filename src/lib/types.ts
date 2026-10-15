@@ -113,3 +113,14 @@ export interface Articolo {
 export interface TipoMiele { id: number; nome: string; sigla: string; archiviato: boolean }
 export interface Variante { id: number; prodotto_id: number; formato: string | null; peso_kg: number | null; codice_articolo: string; attivo: boolean; distinta: { articolo_id: number; quantita: number }[] }
 export interface Prodotto { id: number; categoria_id: number; nome: string; tipo_miele_id: number | null; attivo: boolean; tipo: { nome: string; sigla: string } | null; varianti: Variante[] }
+
+/** Fatturato (venduto) di un anno: scritto a mano fino al 2025, calcolato dall'app dal 2026. */
+export interface FatturatoAnno {
+  anno: number; fonte: 'manuale' | 'automatico'; venduto: number;
+  venduto_ordini: number | null; venduto_mercato: number | null; incassato: number | null;
+  pezzi_senza_prezzo: number; nota: string | null; aggiornato_il: string | null;
+}
+export interface ModificaFatturato {
+  id: number; anno: number; importo_prima: number | null; importo_dopo: number | null; nota: string | null;
+  modificato_il: string; autore: { nome: string } | null;
+}

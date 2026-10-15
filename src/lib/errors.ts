@@ -16,6 +16,8 @@ const VINCOLI: Record<string, string> = {
   tipi_miele_sigla_check: 'La sigla deve avere 3 lettere (es. TIG).',
   profili_username_check: 'Il nome utente va scritto come nome.cognome, minuscolo e senza spazi.',
   prezzi_storico_prezzo_check: 'Il prezzo non può essere negativo.',
+  fatturato_storico_anno: 'Il fatturato si scrive a mano solo per gli anni fino al 2025.',
+  fatturato_storico_importo: 'Il fatturato non può essere negativo.',
 };
 
 const DUPLICATI: Record<string, string> = {

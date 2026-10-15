@@ -243,6 +243,11 @@ export const spese = (dal: string) => q<T.Spesa[]>(sb.from('v_spese').select('*'
 export const smielature = () => q<{ data: string; lotto: { codice: string; anno: number; tipo: { nome: string } }; bariloni: { kg: number }[] }[]>(
   sb.from('lotto_eventi').select('data, lotto:lotti(codice,anno,tipo:tipi_miele(nome)), bariloni:smielatura_bariloni(kg)').eq('tipo', 'smielatura'));
 export const kgSmielati = () => q<{ anno: number; tipo_miele: string; lotto: string; kg: number }[]>(sb.from('v_kg_smielati').select('*'));
+export const fatturatoAnni = () => q<T.FatturatoAnno[]>(sb.from('v_fatturato_anni').select('*').order('anno'));
+export const modificheFatturato = () => q<T.ModificaFatturato[]>(sb.from('fatturato_storico_modifiche')
+  .select('id, anno, importo_prima, importo_dopo, nota, modificato_il, autore:profili(nome)').order('id', { ascending: false }).limit(50));
+export const impostaFatturatoStorico = (anno: number, importo: number | null, nota?: string) =>
+  rpc('imposta_fatturato_storico', { p_anno: anno, p_importo: importo, p_nota: nota || null });
 export const incassiCosti = () => q<{ anno: number; incassi: number; costi: number }[]>(sb.from('v_incassi_costi_anno').select('*').order('anno'));
 export async function grafici(): Promise<T.Grafico[]> {
   const s = await sessione();
