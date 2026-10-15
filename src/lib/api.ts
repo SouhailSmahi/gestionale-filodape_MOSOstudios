@@ -105,6 +105,17 @@ export const eliminaRiga = (id: number) => q(sb.from('comanda_righe').delete().e
 export const aggiungiRiga = (comanda_id: number, variante_id: number, quantita_ordinata: number) =>
   q(sb.from('comanda_righe').insert({ comanda_id, variante_id, quantita_ordinata }));
 export const aggiornaNoteComanda = (id: number, note: string) => q(sb.from('comande').update({ note: note || null }).eq('id', id));
+// operazioni in blocco sugli ordini di uno stesso cliente (tutto o niente)
+export const confermaComande = (ids: number[], stato: 'confermata' | 'in_produzione', data: string) =>
+  rpc<number>('conferma_comande', { p_comande: ids, p_stato: stato, p_data: data });
+export const consegnaComande = (ids: number[], incasso: number | null, note?: string) =>
+  rpc<number>('consegna_comande', { p_comande: ids, p_incasso: incasso, p_note: note || null });
+export const distribuisciIncasso = (ids: number[], importo: number, note?: string) =>
+  rpc('distribuisci_incasso', { p_comande: ids, p_importo: importo, p_note: note || null });
+/** Aggiunge prodotti a un ordine ancora in attesa (somma i pezzi se il prodotto c'è già). */
+export const aggiungiAComanda = (id: number, righe: { variante_id: number; quantita: number }[], note?: string) =>
+  rpc('aggiungi_a_comanda', { p_comanda: id, p_righe: righe, p_note: note || null });
+/** Ordini in attesa di conferma di un cliente (per un aiutante: solo i suoi, lo decidono le regole del database). */
 export const saldiAperti = () => q<T.Saldo[]>(sb.from('v_saldi_aperti').select('*'));
 export const scadenze = () => q<T.Scadenza[]>(sb.from('v_scadenze_consegna').select('*').order('data_consegna_indicativa'));
 

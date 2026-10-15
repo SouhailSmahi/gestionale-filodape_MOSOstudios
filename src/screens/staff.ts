@@ -11,6 +11,14 @@ import type { Disponibilita, MiaComanda } from '../lib/types';
 
 const APERTI = ['in_attesa_conferma', 'confermata', 'in_produzione', 'parzialmente_evasa'];
 
+/** Ordini dello stesso cliente in una scheda sola: prima i clienti con ordini aperti, poi i più recenti. */
+function raggruppa(ordini: MiaComanda[]): MiaComanda[][] {
+  const m = new Map<number, MiaComanda[]>();
+  [...ordini].sort((a, b) => b.creata_il.localeCompare(a.creata_il)).forEach((o) => m.set(o.cliente_id, [...(m.get(o.cliente_id) ?? []), o]));
+  const aperto = (g: MiaComanda[]) => g.some((o) => APERTI.includes(o.stato));
+  return [...m.values()].sort((a, b) => Number(aperto(b)) - Number(aperto(a)) || b[0].creata_il.localeCompare(a[0].creata_il));
+}
+
 export function mieiOrdini(): Pagina {
   let ordini: MiaComanda[] = [];
   let righe: Awaited<ReturnType<typeof api.righeComande>> = [];
@@ -25,21 +33,23 @@ export function mieiOrdini(): Pagina {
     },
     vista() {
       return html`${testa('I miei ordini', { sub: 'Lo stato si aggiorna quando Filippo conferma o consegna. Qui vedi gli ordini aperti e quelli degli ultimi due mesi.' })}
-      ${ordini.length ? html`<div class="cols">${ordini.map((o) => {
-        const rr = righe.filter((r) => r.comanda_id === o.id);
-        return html`<div class="card">
-          <div class="card-head"><h3>${o.cliente}</h3>${badgeStato(o.stato)}</div>
+      ${ordini.length ? html`<div class="cols">${raggruppa(ordini).map((g) => html`<div class="card">
+        <div class="card-head"><h3>${g[0].cliente}</h3>${g.length > 1 ? html`<span class="pill">${g.length} ordini</span>` : badgeStato(g[0].stato)}</div>
+        ${g.map((o, i) => {
+          const rr = righe.filter((r) => r.comanda_id === o.id);
+          return html`<div class=${i ? 'mt2' : ''} style=${i ? 'border-top:var(--border-w) solid var(--color-border);padding-top:var(--space-3)' : ''}>
+          ${g.length > 1 ? html`<div style="margin-bottom:var(--space-2)">${badgeStato(o.stato)}</div>` : nothing}
           <div>${rr.map((r) => `${nomeVariante(r.variante_id)} × ${r.quantita_ordinata}`).join(', ')}</div>
           ${o.data_consegna_indicativa && !['annullata', 'evasa'].includes(o.stato)
             ? html`<div class="mt">Consegna indicativa: <b>${fdl(o.data_consegna_indicativa)}</b></div>` : nothing}
           ${o.note ? html`<div class="small mt">Nota: ${o.note}</div>` : nothing}
           <div class="row mt wrap"><span class="small">Inserito il ${fd(o.creata_il)}</span>
             ${o.stato === 'in_attesa_conferma' ? html`<button class="btn quiet sm" @click=${async () => {
-              if (!(await chiedi('Annullare l\'ordine?', `L'ordine di ${o.cliente} non sarà più da confermare. Filippo riceve un avviso.`, 'Annulla ordine', true))) return;
+              if (!(await chiedi('Annullare l\'ordine?', `L'ordine di ${o.cliente} non sarà più da confermare. Filippo riceve un avviso.`, 'Annulla ordine', true, 'Indietro'))) return;
               try { await api.annullaComanda(o.id); toast('Ordine annullato'); ricarica(); } catch (e) { toast(messaggioErrore(e), true); }
-            }}>Annulla ordine</button>` : nothing}</div>
-        </div>`;
-      })}</div>`
+            }}>Annulla ordine</button>` : nothing}</div></div>`;
+        })}
+      </div>`)}</div>`
       : html`<div class="empty">Non hai ancora inserito ordini.<div><a class="btn primary" href="/nuovo">Inserisci il primo</a></div></div>`}`;
     },
   };

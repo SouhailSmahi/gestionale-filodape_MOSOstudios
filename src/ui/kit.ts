@@ -141,7 +141,7 @@ function disegnaToast() {
 
 const dlgRoot = (() => { const d = document.createElement('div'); document.body.appendChild(d); return d; })();
 /** Finestra di conferma. Restituisce true se l'utente conferma. */
-export function chiedi(titolo: string, testo: string | TemplateResult, ok = 'Conferma', pericolo = false): Promise<boolean> {
+export function chiedi(titolo: string, testo: string | TemplateResult, ok = 'Conferma', pericolo = false, no = 'Annulla'): Promise<boolean> {
   return new Promise((res) => {
     const chiudi = (v: boolean) => { render(nothing, dlgRoot); document.removeEventListener('keydown', esc); res(v); };
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') chiudi(false); };
@@ -149,7 +149,7 @@ export function chiedi(titolo: string, testo: string | TemplateResult, ok = 'Con
     render(html`<div class="dialog-back" @click=${(e: Event) => { if (e.target === e.currentTarget) chiudi(false); }}>
       <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-t">
         <h2 id="dlg-t">${titolo}</h2><div>${testo}</div>
-        <div class="btns"><button class="btn quiet" @click=${() => chiudi(false)}>Annulla</button>
+        <div class="btns"><button class="btn quiet" @click=${() => chiudi(false)}>${no}</button>
         <button class="btn ${pericolo ? 'danger' : 'primary'}" id="dlg-ok" @click=${() => chiudi(true)}>${ok}</button></div>
       </div></div>`, dlgRoot);
     requestAnimationFrame(() => (document.getElementById('dlg-ok') as HTMLButtonElement | null)?.focus());

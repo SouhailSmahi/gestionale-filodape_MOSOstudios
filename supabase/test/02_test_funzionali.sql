@@ -145,6 +145,34 @@ select pg_temp.as_user('admin');
 select pg_temp.check('da fare: chiudi MIL-2026-02', exists (select 1 from v_da_fare where testo like '%MIL-2026-02%'));
 select pg_temp.check('incassi/costi per anno', (select count(*) from v_incassi_costi_anno) >= 1);
 
+-- ordini raggruppati per cliente: aggiunta, conferma, consegna e incasso in blocco
+select pg_temp.as_user('staff');
+select crea_comanda(null, '{"nome":"Gino","cognome":"Gruppo"}', '[{"variante_id":2,"quantita":2}]') as ga \gset
+select aggiungi_a_comanda(:ga, '[{"variante_id":2,"quantita":1},{"variante_id":8,"quantita":1}]', 'anche millefiori');
+select pg_temp.check('aggiunta: pezzi sommati sulla stessa riga', (select quantita_ordinata from comanda_righe where comanda_id = :ga and variante_id = 2) = 3
+                     and (select count(*) from comanda_righe where comanda_id = :ga) = 2);
+select pg_temp.check('aggiunta: nota accodata', (select note from comande where id = :ga) = 'anche millefiori');
+select pg_temp.check('aiutante vede il cliente dell''ordine', (select cliente_id from v_mie_comande where id = :ga) is not null);
+select pg_temp.deve_fallire('staff non consegna in blocco', 'select consegna_comande(array[' || :ga || ']::bigint[])', 'Solo l''amministratore');
+select pg_temp.as_user('admin');
+select crea_comanda((select cliente_id from comande where id = :ga), null, '[{"variante_id":8,"quantita":2}]') as gb \gset
+select pg_temp.as_user('staff');
+select pg_temp.deve_fallire('staff non aggiunge a ordini altrui', 'select aggiungi_a_comanda(' || :gb || ', ''[{"variante_id":2,"quantita":1}]'')', 'solo ai tuoi');
+select pg_temp.as_user('admin');
+select conferma_comande(array[:ga, :gb]::bigint[], 'confermata', current_date + 2);
+select pg_temp.check('conferma in blocco', (select count(*) from comande where id in (:ga, :gb) and stato = 'confermata' and data_consegna_indicativa = current_date + 2) = 2);
+select pg_temp.deve_fallire('niente aggiunte dopo la conferma', 'select aggiungi_a_comanda(' || :ga || ', ''[{"variante_id":2,"quantita":1}]'')', 'già stato confermato');
+select coalesce(sum(cr.quantita_ordinata * cr.prezzo_unitario_applicato), 0) as tot_g from comanda_righe cr where cr.comanda_id in (:ga, :gb) \gset
+select consegna_comande(array[:ga, :gb]::bigint[], :tot_g + 8);
+select pg_temp.check('consegna in blocco: tutto consegnato', (select count(*) from comande where id in (:ga, :gb) and stato = 'evasa') = 2);
+select pg_temp.check('incasso diviso: incassato il totale scritto', (select sum(importo) from movimenti_pagamento where comanda_id in (:ga, :gb)) = :tot_g + 8);
+select pg_temp.check('incasso diviso: primo ordine saldato', not exists (select 1 from v_saldi_aperti where comanda_id = :ga));
+select pg_temp.check('incasso diviso: avanzo come acconto sull''ultimo', (select saldo from v_saldi_aperti where comanda_id = :gb) = -8);
+select crea_comanda((select cliente_id from comande where id = :ga), null, '[{"variante_id":4,"quantita":500}]') as gc \gset
+select conferma_comande(array[:gc]::bigint[], 'in_produzione', current_date + 9);
+select pg_temp.deve_fallire('consegna in blocco senza merce', 'select consegna_comande(array[' || :gc || ']::bigint[])', 'Merce pronta insufficiente');
+select pg_temp.check('nessuna consegna parziale dopo il rifiuto', (select quantita_evasa from comanda_righe where comanda_id = :gc) = 0);
+
 -- utente disattivato
 reset role;
 update profili set attivo = false where username = 'anna.menossi';

@@ -6,10 +6,10 @@ import { aggiorna, stato, vai } from '../app';
 import * as api from '../lib/api';
 import { catalogo, nomeBreve } from '../lib/catalogo';
 import { leggiBozza, salvaBozza, cancellaBozza } from '../lib/bozze';
-import { eur, capitalizza } from '../lib/format';
+import { eur, capitalizza, fd } from '../lib/format';
 import { AppError } from '../lib/errors';
 import { icon } from '../ui/icons';
-import { testa, toast, erroreModulo, Modulo } from '../ui/kit';
+import { testa, toast, erroreModulo, Modulo, chiedi } from '../ui/kit';
 import type { ClienteBreve, Disponibilita } from '../lib/types';
 
 interface Bozza { cliente: string; telefono: string; note: string; righe: { v: number; q: string }[] }
@@ -42,15 +42,30 @@ export function nuovoOrdine(): Pagina {
     b.righe.forEach((r) => somma.set(r.v, (somma.get(r.v) ?? 0) + Number(r.q)));
     const noto = clienteNoto();
     let id = 0;
+    // stesso cliente con un ordine ancora da confermare: meglio un ordine solo
+    let unisci: { id: number; creata_il: string } | undefined;
+    if (noto && somma.size && !Object.keys(m.err).length && !Object.keys(errRiga).length) {
+      try {
+        unisci = (await api.mieComande()).filter((o) => o.cliente_id === noto.id && o.stato === 'in_attesa_conferma')
+          .sort((a, b) => b.creata_il.localeCompare(a.creata_il))[0];
+      } catch { unisci = undefined; }
+      if (unisci && !(await chiedi('Aggiungere all\'ordine già inserito?',
+        `${noto.nome} ${noto.cognome} ha già un ordine del ${fd(unisci.creata_il)} non ancora confermato. Aggiungo questi prodotti a quello? Altrimenti diventa un ordine a parte.`,
+        'Sì, aggiungi', false, 'No, ordine a parte'))) unisci = undefined;
+    }
     const ok = await m.invia(async () => {
       if (!somma.size) throw new AppError('Aggiungi almeno un prodotto.');
+      if (unisci) {
+        await api.aggiungiAComanda(unisci.id, [...somma].map(([variante_id, quantita]) => ({ variante_id, quantita })), b.note.trim());
+        id = unisci.id; return;
+      }
       id = await api.creaComanda(noto?.id ?? null,
         noto ? null : { nome: capitalizza(parti[0]), cognome: capitalizza(parti.slice(1).join(' ')), telefono: b.telefono.trim() || undefined },
         [...somma].map(([variante_id, quantita]) => ({ variante_id, quantita })), b.note.trim());
     });
     if (!ok) return;
     cancellaBozza('ordine');
-    toast(admin ? 'Ordine registrato' : 'Ordine registrato: Filippo lo conferma e ti indica quando si consegna');
+    toast(unisci ? 'Prodotti aggiunti all\'ordine già inserito' : admin ? 'Ordine registrato' : 'Ordine registrato: Filippo lo conferma e ti indica quando si consegna');
     vai(admin ? `/ordini/${id}` : '/miei', { replace: true });
   }
 
