@@ -202,6 +202,50 @@ select imposta_fatturato_storico(2025, null);
 select pg_temp.check('valore tolto, modifica registrata', not exists (select 1 from fatturato_storico where anno = 2025)
                      and (select count(*) from fatturato_storico_modifiche where anno = 2025) = 3);
 
+-- movimenti di denaro: incasso, acconto, resto
+select pg_temp.as_user('admin');
+select crea_comanda((select id from clienti limit 1), null, '[{"variante_id":2,"quantita":2}]') as mi \gset
+select conferma_comande(array[:mi]::bigint[], 'confermata', current_date + 1);
+select prezzo_unitario_applicato as pz from comanda_righe where comanda_id = :mi \gset
+insert into movimenti_pagamento (comanda_id, importo, note) values (:mi, 5, 'prima della consegna');
+select pg_temp.check('pagamento prima della consegna = acconto', (select tipo from movimenti_pagamento where comanda_id = :mi order by id desc limit 1) = 'acconto'
+                     and (select quota_acconto from movimenti_pagamento where comanda_id = :mi order by id desc limit 1) = 5);
+select registra_consegna(:mi, (select jsonb_agg(jsonb_build_object('comanda_riga_id', id, 'quantita', 2)) from comanda_righe where comanda_id = :mi));
+insert into movimenti_pagamento (comanda_id, importo, tipo) values (:mi, 2 * :pz - 5 + 3, 'resto');
+select pg_temp.check('dopo la consegna: incasso con 3 € di acconto (il tipo lo decide il database)',
+  (select tipo from movimenti_pagamento where comanda_id = :mi order by id desc limit 1) = 'incasso_acconto'
+  and (select quota_acconto from movimenti_pagamento where comanda_id = :mi order by id desc limit 1) = 3);
+insert into movimenti_pagamento (comanda_id, importo) values (:mi, -3);
+select pg_temp.check('soldi restituiti = resto', (select tipo from movimenti_pagamento where comanda_id = :mi order by id desc limit 1) = 'resto');
+select pg_temp.check('tutti i movimenti hanno un tipo', not exists (select 1 from movimenti_pagamento where tipo is null));
+
+-- esportazione completa e backup in Excel
+select pg_temp.check('esportazione: tutte le tabelle, senza i backup', (select count(*) from jsonb_array_elements(esporta_dati()->'tabelle') t where t->>'nome' = 'comande') = 1
+                     and not exists (select 1 from jsonb_array_elements(esporta_dati()->'tabelle') t where t->>'nome' in ('backup_excel', 'push_chiavi', 'push_iscrizioni')));
+select pg_temp.check('esportazione: riepilogo ordini leggibile', jsonb_array_length(esporta_dati()->'ordini') = (select count(*) from comande));
+select pg_temp.deve_fallire('versione interna non chiamabile dall''app', 'select _dati_esportazione()', 'permission denied');
+reset role;
+insert into backup_excel (nome_file, dimensione, file) values ('prova.xlsx', 3, '\x010203');
+insert into push_chiavi (pubblica, privata) values ('PUB', 'PRIV');
+set role authenticated;
+select pg_temp.check('backup: il titolare vede l''elenco', (select count(*) from backup_excel) = 1);
+select pg_temp.deve_fallire('backup: il file non si legge direttamente', 'select file from backup_excel', 'permission denied');
+select pg_temp.check('backup: scaricato in base64', scarica_backup((select id from backup_excel limit 1)) = 'AQID');
+select pg_temp.check('backup: segnato come scaricato', (select scaricato_il from backup_excel limit 1) is not null);
+select pg_temp.check('chiave pubblica per le notifiche', chiave_push_pubblica() = 'PUB');
+select pg_temp.deve_fallire('chiave privata non leggibile', 'select privata from push_chiavi', 'permission denied');
+select salva_iscrizione_push('https://push.example/abc', 'k1', 'a1', 'iPhone');
+select pg_temp.check('iscrizione push del titolare', (select count(*) from push_iscrizioni) = 1);
+select pg_temp.as_user('staff');
+select pg_temp.deve_fallire('staff non esporta', 'select esporta_dati()', 'Solo l''amministratore');
+select pg_temp.deve_fallire('staff non scarica backup', 'select scarica_backup(1)', 'Solo l''amministratore');
+select pg_temp.check('staff non vede backup né iscrizioni', (select count(*) from backup_excel) = 0 and (select count(*) from push_iscrizioni) = 0);
+select pg_temp.check('staff non ha la chiave push', chiave_push_pubblica() is null);
+select pg_temp.deve_fallire('staff non riceve notifiche sul telefono', 'select salva_iscrizione_push(''https://x'', ''k'', ''a'')', 'solo per il titolare');
+select pg_temp.as_user('admin');
+select togli_iscrizione_push('https://push.example/abc');
+select pg_temp.check('iscrizione tolta', (select count(*) from push_iscrizioni) = 0);
+
 -- utente disattivato
 reset role;
 update profili set attivo = false where username = 'anna.menossi';

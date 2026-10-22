@@ -24,7 +24,7 @@ export interface Comanda {
   cliente: { id: number; nome: string; cognome: string; telefono: string | null; tipo: string } | null;
   creatore: { nome: string; username: string } | null;
   righe: RigaComanda[];
-  pagamenti: { id: number; importo: number; data_movimento: string; note: string | null }[];
+  pagamenti: { id: number; importo: number; data_movimento: string; note: string | null; tipo: TipoMovimento; quota_acconto: number }[];
   consegne: { id: number; data_consegna: string; note: string | null; righe: { comanda_riga_id: number; quantita: number }[] }[];
 }
 export interface Saldo { comanda_id: number; cliente: string; totale_consegnato: number; incassato: number; saldo: number }
@@ -124,3 +124,6 @@ export interface ModificaFatturato {
   id: number; anno: number; importo_prima: number | null; importo_dopo: number | null; nota: string | null;
   modificato_il: string; autore: { nome: string } | null;
 }
+
+/** Cosa rappresenta un movimento di denaro di un ordine (lo decide il database). */
+export type TipoMovimento = 'incasso' | 'acconto' | 'incasso_acconto' | 'resto';

@@ -15,6 +15,7 @@ Una volta sola. In tutto servono circa 45 minuti. Le chiavi e le password non va
    4. `supabase/migrations/20261014000000_permessi_funzioni_trigger.sql`
    5. `supabase/migrations/20261015000000_ordini_per_cliente.sql`
    6. `supabase/migrations/20261016000000_fatturato_per_anno.sql`
+   7. `supabase/migrations/20261022000000_incassi_backup_notifiche.sql`
 
    In alternativa, con la CLI: `supabase link --project-ref <ref>` e poi `supabase db push`.
 4. **Accesso di Filippo.**
@@ -96,9 +97,18 @@ Va fatto insieme, dal computer, in quest'ordine:
 
 ## Backup e ripristino
 
-Ogni notte GitHub salva un file `filodape-AAAA-MM-GG.tar.gz.gpg` tra gli *artifact* del workflow **Backup notturno**, conservato per 30 giorni.
+Ci sono due copie automatiche, diverse e complementari.
 
-Per ripristinare, su un computer con PostgreSQL 17 installato:
+| Copia | Quando | Dove | A cosa serve |
+|---|---|---|---|
+| Database completo (`filodape-AAAA-MM-GG.tar.gz.gpg`) | ogni notte | GitHub, workflow **Backup notturno**, 90 giorni | ripristino esatto, accessi compresi: è la prima scelta |
+| Excel (`filodape-backup-AAAA-MM-GG.xlsx`) | ogni lunedì mattina | nel gestionale, *Impostazioni → Backup* (ultime 8); Filippo lo scarica sul telefono o sul computer | copia leggibile e fuori da Supabase e GitHub; da lì si ripristina tutto se le altre copie mancano |
+
+Il backup Excel lo crea il workflow **Backup settimanale in Excel** con lo stesso segreto `SUPABASE_DB_URL`. Al primo giro crea da solo le chiavi per le notifiche sul telefono: non c'è niente da configurare. Filippo può anche scaricarne una copia quando vuole (*Scarica una copia adesso*).
+
+### Ripristino dal backup notturno
+
+Su un computer con PostgreSQL 17 installato:
 
 ```bash
 gpg --decrypt filodape-AAAA-MM-GG.tar.gz.gpg > backup.tar.gz     # chiede la BACKUP_PASSPHRASE
@@ -108,7 +118,20 @@ pg_restore --no-owner --no-privileges -d "<connection string>" auth_users.dump
 pg_restore --no-owner --no-privileges -d "<connection string>" public.dump
 ```
 
-Fai una prova di ripristino su un progetto di test almeno una volta, appena finito il periodo di prova: un backup mai provato non è un backup.
+### Ripristino dall'Excel
+
+Da usare se il backup notturno non c'è. Il file contiene un foglio per ogni tabella, con le colonne originali; i fogli Leggimi, Ordini e Giacenze sono solo da leggere.
+
+1. Crea un progetto Supabase nuovo ed esegui tutte le migrazioni del punto 1.3, nell'ordine.
+2. Ricrea gli accessi (*Authentication → Users*): Filippo e gli aiutanti, con gli stessi nomi utente.
+3. Prepara `mappa.json` con il vecchio e il nuovo identificativo di ogni accesso, in minuscolo: `{"vecchio-uuid": "nuovo-uuid"}`. I vecchi sono nel foglio `profili` dell'Excel, i nuovi in Supabase.
+4. Lancia:
+   ```bash
+   SUPABASE_DB_URL="<connection string del nuovo progetto>" npm run ripristina -- filodape-backup-AAAA-MM-GG.xlsx --utenti mappa.json --sovrascrivi
+   ```
+   Il ripristino avviene in un'unica transazione: se qualcosa va storto, il database resta com'era.
+
+Prova almeno una volta tutti e due i ripristini su un progetto di test: un backup mai provato non è un backup.
 
 ## Se qualcosa non va
 

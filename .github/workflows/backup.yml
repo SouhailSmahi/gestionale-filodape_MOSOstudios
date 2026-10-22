@@ -1,5 +1,5 @@
 # Backup notturno del database (il piano gratuito di Supabase non ne fa).
-# Il file è cifrato con una passphrase e conservato 30 giorni tra gli "artifact" di GitHub.
+# Il file è cifrato con una passphrase e conservato 90 giorni tra gli "artifact" di GitHub.
 # Segreti richiesti:
 #   SUPABASE_DB_URL     stringa di connessione "Session pooler" (Supabase → Connect), con la password del database
 #   BACKUP_PASSPHRASE   frase lunga a piacere: serve per aprire il backup, conservala anche fuori da GitHub
@@ -30,7 +30,8 @@ jobs:
           set -euo pipefail
           giorno=$(date -u +%Y-%m-%d)
           # schema public (dati e logica) + utenti di accesso (auth.users), senza le parti interne di Supabase
-          /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" --no-owner --no-privileges --schema=public --format=custom -f public.dump
+          # (i file Excel settimanali restano fuori: sono già una copia dei dati)
+          /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" --no-owner --no-privileges --schema=public --exclude-table-data=public.backup_excel --format=custom -f public.dump
           /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" --no-owner --no-privileges --data-only --table=auth.users --format=custom -f auth_users.dump
           tar czf "filodape-$giorno.tar.gz" public.dump auth_users.dump
           gpg --batch --yes --pinentry-mode loopback --passphrase "$PASS" --symmetric --cipher-algo AES256 "filodape-$giorno.tar.gz"
@@ -40,5 +41,5 @@ jobs:
         with:
           name: backup-${{ github.run_id }}
           path: ${{ env.FILE }}
-          retention-days: 30
+          retention-days: 90
           if-no-files-found: error

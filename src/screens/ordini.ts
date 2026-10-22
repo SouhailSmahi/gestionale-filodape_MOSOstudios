@@ -107,8 +107,11 @@ export function schedaOrdine(p: Record<string, string>): Pagina {
     mp.err = {};
     const v = parseNum(mp.v.importo);
     if (!v || v <= 0) mp.errore('importo', 'Scrivi un importo maggiore di zero, es. 10,50');
-    if (await mp.invia(() => api.registraPagamento(id, segno * Math.round((v ?? 0) * 100) / 100, mp.v.nota.trim() || (segno > 0 ? 'Incasso' : 'Resto dato al cliente')))) {
-      toast(segno > 0 ? 'Incasso registrato' : 'Resto registrato'); mp.v = { importo: '', nota: '' }; aperto = ''; ricarica();
+    const imp = segno * Math.round((v ?? 0) * 100) / 100;
+    if (await mp.invia(() => api.registraPagamento(id, imp, mp.v.nota.trim()))) {
+      const scoperto = Math.max(0, Math.round((dovuto(o) - incassato(o)) * 100) / 100);
+      toast(segno < 0 ? 'Resto registrato' : imp <= scoperto ? 'Incasso registrato' : scoperto > 0 ? 'Incasso registrato, con una parte di acconto' : 'Acconto registrato');
+      mp.v = { importo: '', nota: '' }; aperto = ''; ricarica();
     }
   }
   async function annulla() {
@@ -129,11 +132,17 @@ export function schedaOrdine(p: Record<string, string>): Pagina {
     <div class="btns"><button class="btn primary" ?disabled=${busy} @click=${consegna}>Conferma consegna</button>
       <button class="btn quiet" @click=${() => { aperto = ''; aggiorna(); }}>Chiudi</button></div></div>`;
 
-  const pannelloPagamento = () => html`<div class="formbox mt"><h3 style="margin-bottom:var(--space-3)">Pagamento</h3>
+  const pannelloPagamento = () => {
+    const sal = Math.round((dovuto(o) - incassato(o)) * 100) / 100;
+    return html`<div class="formbox mt"><h3 style="margin-bottom:var(--space-3)">${sal > 0 ? 'Incasso' : 'Acconto'}</h3>
+    <p class="small" style="margin-bottom:var(--space-3)">${sal > 0
+      ? html`Merce consegnata ancora da pagare: <b>${eur(sal)}</b>. Se ricevi di più, la parte in più è un acconto.`
+      : html`Non c'è merce consegnata da pagare: quello che registri è un <b>acconto</b> e si scala alle prossime consegne. La consegna si registra a parte.`}</p>
     ${erroreModulo(mp)}
     ${campo(mp, 'importo', 'Importo', { numero: true, unita: '€', placeholder: '10,50' })}
     ${campo(mp, 'nota', 'Nota (facoltativa)', { placeholder: 'Contanti, bonifico…' })}
-    <div class="btns">${bottoneInvio(mp, 'Ho incassato', () => pagamento(1), 'primary')}${bottoneInvio(mp, 'Ho dato il resto', () => pagamento(-1), '')}</div></div>`;
+    <div class="btns">${bottoneInvio(mp, sal > 0 ? 'Registra incasso' : 'Registra acconto', () => pagamento(1), 'primary')}${bottoneInvio(mp, 'Ho dato il resto', () => pagamento(-1), '')}</div></div>`;
+  };
 
   const pannelloData = () => html`<div class="formbox mt">
     ${erroreModulo(mc)}
@@ -177,7 +186,10 @@ export function schedaOrdine(p: Record<string, string>): Pagina {
 
           ${attivo || (o.stato === 'evasa' && sal !== 0) ? html`<div class="btns">
             ${attivo ? html`<button class="btn ${aperto === 'consegna' ? 'primary' : ''}" @click=${() => { aperto = aperto === 'consegna' ? '' : 'consegna'; aggiorna(); }}>Registra consegna</button>` : nothing}
-            <button class="btn ${aperto === 'pagamento' ? 'primary' : ''}" @click=${() => { aperto = aperto === 'pagamento' ? '' : 'pagamento'; aggiorna(); }}>Pagamento</button>
+            <button class="btn ${aperto === 'pagamento' ? 'primary' : ''}" @click=${() => {
+              aperto = aperto === 'pagamento' ? '' : 'pagamento';
+              if (aperto && sal > 0 && !mp.v.importo) mp.v.importo = numCampo(sal);
+              aggiorna(); }}>${sal > 0 ? 'Incasso' : 'Acconto'}</button>
             ${o.stato === 'confermata' || o.stato === 'in_produzione' ? html`<button class="btn" @click=${() => { aperto = aperto === 'data' ? '' : 'data'; aggiorna(); }}>Cambia data</button>` : nothing}
             ${o.stato === 'confermata' || o.stato === 'in_produzione' ? html`<button class="btn quiet" @click=${annulla}>Annulla ordine</button>` : nothing}
           </div>` : nothing}
@@ -193,8 +205,9 @@ export function schedaOrdine(p: Record<string, string>): Pagina {
             ${sal < 0 && o.stato !== 'evasa' ? html`<p class="small mt">L'acconto si scala da solo man mano che consegni: a fine consegne il saldo torna in pari.</p>` : nothing}</div>` : nothing}
           ${o.consegne.length ? html`<div><h3 style="margin-bottom:var(--space-2)">Consegne</h3>${lista(o.consegne.map((c) => riga({
             t: fdt(c.data_consegna), m: c.righe.map((x) => `${nomeVariante(o.righe.find((r) => r.id === x.comanda_riga_id)?.variante_id ?? 0)} × ${x.quantita}`).join(', ') })))}</div>` : nothing}
-          ${o.pagamenti.length ? html`<div><h3 style="margin-bottom:var(--space-2)">Pagamenti</h3>${lista(o.pagamenti.map((x) => riga({
-            t: `${Number(x.importo) > 0 ? '+' : ''}${eur(Number(x.importo))}`, m: `${fd(x.data_movimento)}${x.note ? ` · ${x.note}` : ''}` })))}</div>` : nothing}
+          ${o.pagamenti.length ? html`<div><h3 style="margin-bottom:var(--space-2)">Soldi ricevuti e restituiti</h3>${lista(o.pagamenti.map((x) => riga({
+            t: html`${Number(x.importo) > 0 ? '+' : ''}${eur(Number(x.importo))} ${badgeMovimento(x)}`,
+            m: `${fd(x.data_movimento)}${x.tipo === 'incasso_acconto' ? ` · di cui acconto ${eur(Number(x.quota_acconto))}` : ''}${notaUtile(x.note) ? ` · ${x.note}` : ''}` })))}</div>` : nothing}
         </aside>
       </div>`;
     },
@@ -360,3 +373,18 @@ function cardInCorso(g: Gruppo, pronti: Map<number, number>): TemplateResult {
           </div></div>`}
   </div>`;
 }
+
+// ---------------------------------------------------------------- movimenti di denaro
+const ETICHETTE_MOVIMENTO: Record<Comanda['pagamenti'][number]['tipo'], [string, string, string]> = {
+  incasso: ['Incasso', 'ok', 'spunta'],
+  acconto: ['Acconto', 'soft', 'orologio'],
+  incasso_acconto: ['Incasso + acconto', 'soft', 'spunta'],
+  resto: ['Resto restituito', 'plain', 'freccia'],
+};
+/** Etichetta del movimento: si legge anche senza colori grazie al testo. */
+const badgeMovimento = (x: Comanda['pagamenti'][number]) => {
+  const [t, c, i] = ETICHETTE_MOVIMENTO[x.tipo] ?? ETICHETTE_MOVIMENTO.incasso;
+  return badge(t, c, i);
+};
+/** Le note scritte in automatico ("Incasso", "Resto dato al cliente"…) non aggiungono niente: si mostrano solo quelle vere. */
+const notaUtile = (n: string | null) => !!n && !/^(incasso|resto dato al cliente|incasso alla consegna|storico importato)( \(acconto\))?$/i.test(n.trim());

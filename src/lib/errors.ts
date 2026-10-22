@@ -18,6 +18,7 @@ const VINCOLI: Record<string, string> = {
   prezzi_storico_prezzo_check: 'Il prezzo non può essere negativo.',
   fatturato_storico_anno: 'Il fatturato si scrive a mano solo per gli anni fino al 2025.',
   fatturato_storico_importo: 'Il fatturato non può essere negativo.',
+  movimenti_pagamento_tipo: 'Tipo di movimento non valido: riprova.',
 };
 
 const DUPLICATI: Record<string, string> = {
