@@ -153,7 +153,7 @@ export function attrezzatura(): Pagina {
 }
 
 // ---------------------------------------------------------------- notifiche
-const CAT_NOT: Record<string, string> = { ordini: 'Ordini', stock: 'Scorte', prezzi: 'Prezzi', modifiche: 'Modifiche', produzione: 'Produzione' };
+const CAT_NOT: Record<string, string> = { ordini: 'Ordini', stock: 'Scorte', prezzi: 'Prezzi', modifiche: 'Modifiche', produzione: 'Produzione', backup: 'Backup' };
 export function notifiche(): Pagina {
   let da: T.Notifica[] = [], lette: T.Notifica[] = []; let f = 'tutte';
   const inF = (n: T.Notifica) => f === 'tutte' || n.categoria === f;
@@ -166,7 +166,8 @@ export function notifiche(): Pagina {
     } catch (e) { toast(messaggioErrore(e), true); }
   }
   const link = (n: T.Notifica) => n.tabella_rif === 'comande' && n.record_rif ? html`<a class="btn sm" href=${`/ordini/${n.record_rif}`}>Apri l'ordine</a>`
-    : n.categoria === 'stock' ? html`<a class="btn sm" href="/acquisti/nuovo">Registra un acquisto</a>` : nothing;
+    : n.categoria === 'stock' ? html`<a class="btn sm" href="/acquisti/nuovo">Registra un acquisto</a>`
+    : n.categoria === 'backup' ? html`<a class="btn sm" href="/impostazioni#backup">Scarica il backup</a>` : nothing;
   return {
     titolo: 'Notifiche', tab: 'notifiche',
     async carica() { [da, lette] = await Promise.all([api.notifiche(false), api.notifiche(true)]); },

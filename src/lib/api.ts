@@ -85,7 +85,7 @@ export const annullaComanda = (id: number) => q(sb.from('comande').update({ stat
 const COMANDA_SEL = `*, cliente:clienti(id,nome,cognome,telefono,tipo),
   creatore:profili!comande_creata_da_fkey(nome,username),
   righe:comanda_righe(id,variante_id,quantita_ordinata,quantita_evasa,prezzo_unitario_applicato),
-  pagamenti:movimenti_pagamento(id,importo,data_movimento,note),
+  pagamenti:movimenti_pagamento(id,importo,data_movimento,note,tipo,quota_acconto),
   consegne(id,data_consegna,note,righe:consegna_righe(comanda_riga_id,quantita))`;
 export function comande(f: { stati?: string[]; daGiorni?: number } = {}) {
   let r = sb.from('comande').select(COMANDA_SEL).order('creata_il', { ascending: false });
@@ -243,6 +243,21 @@ export const spese = (dal: string) => q<T.Spesa[]>(sb.from('v_spese').select('*'
 export const smielature = () => q<{ data: string; lotto: { codice: string; anno: number; tipo: { nome: string } }; bariloni: { kg: number }[] }[]>(
   sb.from('lotto_eventi').select('data, lotto:lotti(codice,anno,tipo:tipi_miele(nome)), bariloni:smielatura_bariloni(kg)').eq('tipo', 'smielatura'));
 export const kgSmielati = () => q<{ anno: number; tipo_miele: string; lotto: string; kg: number }[]>(sb.from('v_kg_smielati').select('*'));
+// ---------------------------------------------------------------- backup e notifiche sul telefono
+export const esportaDati = () => rpc<import('./backup').DatiEsportati>('esporta_dati');
+export const elencoBackup = () => q<{ id: number; creato_il: string; nome_file: string; dimensione: number; scaricato_il: string | null }[]>(
+  sb.from('backup_excel').select('id, creato_il, nome_file, dimensione, scaricato_il').order('creato_il', { ascending: false }));
+export const scaricaBackup = (id: number) => rpc<string>('scarica_backup', { p_id: id });
+export const chiavePushPubblica = () => rpc<string | null>('chiave_push_pubblica');
+export const salvaIscrizionePush = (endpoint: string, p256dh: string, auth: string, dispositivo: string) =>
+  rpc('salva_iscrizione_push', { p_endpoint: endpoint, p_p256dh: p256dh, p_auth: auth, p_dispositivo: dispositivo });
+export const togliIscrizionePush = (endpoint: string) => rpc('togli_iscrizione_push', { p_endpoint: endpoint });
+
+export const fatturatoAnni = () => q<T.FatturatoAnno[]>(sb.from('v_fatturato_anni').select('*').order('anno'));
+export const modificheFatturato = () => q<T.ModificaFatturato[]>(sb.from('fatturato_storico_modifiche')
+  .select('id, anno, importo_prima, importo_dopo, nota, modificato_il, autore:profili(nome)').order('id', { ascending: false }).limit(50));
+export const impostaFatturatoStorico = (anno: number, importo: number | null, nota?: string) =>
+  rpc('imposta_fatturato_storico', { p_anno: anno, p_importo: importo, p_nota: nota || null });
 export const incassiCosti = () => q<{ anno: number; incassi: number; costi: number }[]>(sb.from('v_incassi_costi_anno').select('*').order('anno'));
 export async function grafici(): Promise<T.Grafico[]> {
   const s = await sessione();

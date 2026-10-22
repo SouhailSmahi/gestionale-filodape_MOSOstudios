@@ -5,6 +5,7 @@
 import { render, html, type TemplateResult } from 'lit-html';
 import type { Profilo } from './lib/types';
 import { messaggioErrore } from './lib/errors';
+import { controllaVersione, versioneNuova, ricaricaConVersioneNuova } from './lib/versione';
 
 export interface Pagina {
   titolo: string;
@@ -27,6 +28,8 @@ export const stato = {
   errore: '' as string,
   contatori: { notifiche: 0, daConfermare: 0 },
   online: navigator.onLine,
+  /** c'è una versione nuova dell'app, ma ci sono modifiche non salvate: si mostra l'avviso */
+  aggiornamento: false,
 };
 
 let rotte: Rotta[] = [];
@@ -47,6 +50,14 @@ export function avvia(opts: { root: HTMLElement; rotte: Rotta[]; shell: typeof s
   });
   window.addEventListener('online', () => { stato.online = true; aggiorna(); });
   window.addEventListener('offline', () => { stato.online = false; aggiorna(); });
+  // versione nuova: si controlla quando l'app torna in primo piano e ogni 15 minuti
+  const verifica = async () => {
+    if (!(await controllaVersione(true))) return;
+    if (stato.pagina?.modificata?.()) { stato.aggiornamento = true; aggiorna(); return; }
+    ricaricaConVersioneNuova();
+  };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') verifica(); });
+  setInterval(() => { if (document.visibilityState === 'visible') controllaVersione().then((n) => { if (n) { stato.aggiornamento = true; aggiorna(); } }); }, 15 * 60_000);
   window.addEventListener('beforeunload', (e) => { if (stato.pagina?.modificata?.()) e.preventDefault(); });
   document.addEventListener('click', (e) => {
     // link interni senza ricaricare la pagina
@@ -87,7 +98,10 @@ export function vai(path: string, o: { replace?: boolean } = {}) {
   }
   pila.voci[pila.i] = { path, titolo: '' };
   salvaPila();
+  // cambio pagina: momento sicuro per passare alla versione nuova
+  if (versioneNuova()) { ricaricaConVersioneNuova(path); return; }
   apri(path);
+  controllaVersione();
   window.scrollTo(0, 0);
 }
 

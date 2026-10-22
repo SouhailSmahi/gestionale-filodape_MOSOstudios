@@ -50,6 +50,11 @@ export function cornice(contenuto: TemplateResult): TemplateResult {
   const basso = admin ? ADMIN_BASSO : STAFF;
   return html`
   ${stato.online ? nothing : html`<div class="offline" role="status">Sei offline: le modifiche si potranno salvare quando torna la connessione.</div>`}
+  ${stato.aggiornamento ? html`<div class="aggiornamento" role="status"><span>C'è una versione nuova dell'app.</span>
+    <button class="btn sm" @click=${() => {
+      if (stato.pagina?.modificata?.() && !confirm('Hai modifiche non salvate. Aggiornare lo stesso?')) return;
+      location.reload();
+    }}>Aggiorna</button></div>` : nothing}
   <div class="shell">
     <aside class="sidebar" aria-label="Menu">
       <a href=${admin ? '/' : '/nuovo'} style="background:none;padding:0">${logo('logo')}</a>

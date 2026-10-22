@@ -7,6 +7,7 @@ import { parseNum, numCampo } from '../lib/format';
 import { AppError } from '../lib/errors';
 import { Modulo, campo, testa, toast, riga, lista, finestra, erroreModulo, bottoneInvio, chiedi, badge, spunta } from '../ui/kit';
 import type { Impostazioni, Profilo } from '../lib/types';
+import { statoBackup, caricaBackup, sezioneBackup } from './backup';
 
 type Tema = 'auto' | 'light' | 'dark';
 const temaAttuale = (): Tema => (document.documentElement.dataset.theme as Tema) || 'auto';
@@ -73,11 +74,13 @@ export function impostazioni(): Pagina {
     };
   }
 
+  const bk = statoBackup();
   return {
     titolo: admin ? 'Impostazioni' : 'Profilo e password', tab: 'impostazioni',
     async carica() {
       if (!admin) return;
-      [utenti, imp] = await Promise.all([api.utenti(), api.impostazioni()]);
+      [utenti, imp] = await Promise.all([api.utenti(), api.impostazioni(), caricaBackup(bk)]);
+      if (location.hash === '#backup') requestAnimationFrame(() => document.getElementById('backup')?.scrollIntoView({ block: 'start' }));
       mi.v = { valore_ora: numCampo(imp.valore_ora, 2), tariffa: numCampo(imp.tariffa_auto_km, 3), netto: imp.costo_netto };
       mi.pulito();
     },
@@ -103,6 +106,8 @@ export function impostazioni(): Pagina {
       </div>
 
       ${admin && imp ? html`
+      ${sezioneBackup(bk)}
+
       <section class="section">
         <div class="section-head"><h2>Utenti</h2><button class="btn" @click=${nuovoUtente}>+ Nuovo aiutante</button></div>
         ${lista(utenti.map((u) => riga({

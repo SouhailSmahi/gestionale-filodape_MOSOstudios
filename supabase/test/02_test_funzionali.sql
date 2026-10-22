@@ -173,6 +173,79 @@ select conferma_comande(array[:gc]::bigint[], 'in_produzione', current_date + 9)
 select pg_temp.deve_fallire('consegna in blocco senza merce', 'select consegna_comande(array[' || :gc || ']::bigint[])', 'Merce pronta insufficiente');
 select pg_temp.check('nessuna consegna parziale dopo il rifiuto', (select quantita_evasa from comanda_righe where comanda_id = :gc) = 0);
 
+-- fatturato per anno: manuale fino al 2025, automatico dal 2026
+select pg_temp.as_user('admin');
+select imposta_fatturato_storico(2025, 8000, 'indicativo, dai conti di Filippo');
+select pg_temp.check('2025 scritto a mano', (select venduto from v_fatturato_anni where anno = 2025 and fonte = 'manuale') = 8000);
+select imposta_fatturato_storico(2025, 8200.456, null);
+select pg_temp.check('correzione: nuovo valore arrotondato', (select importo from fatturato_storico where anno = 2025) = 8200.46);
+select pg_temp.check('correzione registrata con il valore di prima', (select count(*) from fatturato_storico_modifiche where anno = 2025) = 2
+                     and (select importo_prima from fatturato_storico_modifiche where anno = 2025 order by id desc limit 1) = 8000);
+select pg_temp.deve_fallire('2026 non si scrive a mano', 'select imposta_fatturato_storico(2026, 100)', 'lo calcola l''app');
+select pg_temp.deve_fallire('importo negativo rifiutato', 'select imposta_fatturato_storico(2024, -1)', 'negativo');
+select pg_temp.deve_fallire('niente scritture dirette', 'insert into fatturato_storico (anno, importo) values (2023, 1)', 'permission denied');
+select pg_temp.check('anno in corso calcolato dagli ordini confermati',
+  (select venduto_ordini from v_fatturato_anni where fonte = 'automatico' and anno = extract(year from now() at time zone 'Europe/Rome')::int)
+  = (select coalesce(sum(cr.quantita_ordinata * coalesce(cr.prezzo_unitario_applicato, 0)), 0) from comande c join comanda_righe cr on cr.comanda_id = c.id
+      where c.stato not in ('annullata', 'in_attesa_conferma') and extract(year from c.creata_il at time zone 'Europe/Rome') = extract(year from now() at time zone 'Europe/Rome')));
+select venduto as v_prima from v_fatturato_anni where fonte = 'automatico' and anno = extract(year from now() at time zone 'Europe/Rome')::int \gset
+select crea_comanda((select id from clienti limit 1), null, '[{"variante_id":2,"quantita":3}]') as fz \gset
+select pg_temp.check('ordine da confermare non conta', (select venduto from v_fatturato_anni where fonte = 'automatico' and anno = extract(year from now() at time zone 'Europe/Rome')::int) = :v_prima);
+select conferma_comande(array[:fz]::bigint[], 'confermata', current_date + 1);
+select pg_temp.check('ordine confermato conta subito, anche senza consegna', (select venduto from v_fatturato_anni where fonte = 'automatico' and anno = extract(year from now() at time zone 'Europe/Rome')::int)
+                     = :v_prima + 3 * (select prezzo_unitario_applicato from comanda_righe where comanda_id = :fz));
+select pg_temp.as_user('staff');
+select pg_temp.check('staff non vede il fatturato', (select count(*) from v_fatturato_anni) = 0 and (select count(*) from fatturato_storico) = 0);
+select pg_temp.deve_fallire('staff non modifica il fatturato', 'select imposta_fatturato_storico(2025, 1)', 'Solo l''amministratore');
+select pg_temp.as_user('admin');
+select imposta_fatturato_storico(2025, null);
+select pg_temp.check('valore tolto, modifica registrata', not exists (select 1 from fatturato_storico where anno = 2025)
+                     and (select count(*) from fatturato_storico_modifiche where anno = 2025) = 3);
+
+-- movimenti di denaro: incasso, acconto, resto
+select pg_temp.as_user('admin');
+select crea_comanda((select id from clienti limit 1), null, '[{"variante_id":2,"quantita":2}]') as mi \gset
+select conferma_comande(array[:mi]::bigint[], 'confermata', current_date + 1);
+select prezzo_unitario_applicato as pz from comanda_righe where comanda_id = :mi \gset
+insert into movimenti_pagamento (comanda_id, importo, note) values (:mi, 5, 'prima della consegna');
+select pg_temp.check('pagamento prima della consegna = acconto', (select tipo from movimenti_pagamento where comanda_id = :mi order by id desc limit 1) = 'acconto'
+                     and (select quota_acconto from movimenti_pagamento where comanda_id = :mi order by id desc limit 1) = 5);
+select registra_consegna(:mi, (select jsonb_agg(jsonb_build_object('comanda_riga_id', id, 'quantita', 2)) from comanda_righe where comanda_id = :mi));
+insert into movimenti_pagamento (comanda_id, importo, tipo) values (:mi, 2 * :pz - 5 + 3, 'resto');
+select pg_temp.check('dopo la consegna: incasso con 3 € di acconto (il tipo lo decide il database)',
+  (select tipo from movimenti_pagamento where comanda_id = :mi order by id desc limit 1) = 'incasso_acconto'
+  and (select quota_acconto from movimenti_pagamento where comanda_id = :mi order by id desc limit 1) = 3);
+insert into movimenti_pagamento (comanda_id, importo) values (:mi, -3);
+select pg_temp.check('soldi restituiti = resto', (select tipo from movimenti_pagamento where comanda_id = :mi order by id desc limit 1) = 'resto');
+select pg_temp.check('tutti i movimenti hanno un tipo', not exists (select 1 from movimenti_pagamento where tipo is null));
+
+-- esportazione completa e backup in Excel
+select pg_temp.check('esportazione: tutte le tabelle, senza i backup', (select count(*) from jsonb_array_elements(esporta_dati()->'tabelle') t where t->>'nome' = 'comande') = 1
+                     and not exists (select 1 from jsonb_array_elements(esporta_dati()->'tabelle') t where t->>'nome' in ('backup_excel', 'push_chiavi', 'push_iscrizioni')));
+select pg_temp.check('esportazione: riepilogo ordini leggibile', jsonb_array_length(esporta_dati()->'ordini') = (select count(*) from comande));
+select pg_temp.deve_fallire('versione interna non chiamabile dall''app', 'select _dati_esportazione()', 'permission denied');
+reset role;
+insert into backup_excel (nome_file, dimensione, file) values ('prova.xlsx', 3, '\x010203');
+insert into push_chiavi (pubblica, privata) values ('PUB', 'PRIV');
+set role authenticated;
+select pg_temp.check('backup: il titolare vede l''elenco', (select count(*) from backup_excel) = 1);
+select pg_temp.deve_fallire('backup: il file non si legge direttamente', 'select file from backup_excel', 'permission denied');
+select pg_temp.check('backup: scaricato in base64', scarica_backup((select id from backup_excel limit 1)) = 'AQID');
+select pg_temp.check('backup: segnato come scaricato', (select scaricato_il from backup_excel limit 1) is not null);
+select pg_temp.check('chiave pubblica per le notifiche', chiave_push_pubblica() = 'PUB');
+select pg_temp.deve_fallire('chiave privata non leggibile', 'select privata from push_chiavi', 'permission denied');
+select salva_iscrizione_push('https://push.example/abc', 'k1', 'a1', 'iPhone');
+select pg_temp.check('iscrizione push del titolare', (select count(*) from push_iscrizioni) = 1);
+select pg_temp.as_user('staff');
+select pg_temp.deve_fallire('staff non esporta', 'select esporta_dati()', 'Solo l''amministratore');
+select pg_temp.deve_fallire('staff non scarica backup', 'select scarica_backup(1)', 'Solo l''amministratore');
+select pg_temp.check('staff non vede backup né iscrizioni', (select count(*) from backup_excel) = 0 and (select count(*) from push_iscrizioni) = 0);
+select pg_temp.check('staff non ha la chiave push', chiave_push_pubblica() is null);
+select pg_temp.deve_fallire('staff non riceve notifiche sul telefono', 'select salva_iscrizione_push(''https://x'', ''k'', ''a'')', 'solo per il titolare');
+select pg_temp.as_user('admin');
+select togli_iscrizione_push('https://push.example/abc');
+select pg_temp.check('iscrizione tolta', (select count(*) from push_iscrizioni) = 0);
+
 -- utente disattivato
 reset role;
 update profili set attivo = false where username = 'anna.menossi';

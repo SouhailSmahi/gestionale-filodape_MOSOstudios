@@ -331,6 +331,11 @@ table.t tfoot td { font-weight: var(--fw-bold); border-top: var(--rule-w) solid 
 details.more > summary { cursor: pointer; color: var(--color-link); font-weight: var(--fw-bold); min-height: var(--touch-min); display: flex; align-items: center; list-style: none; }
 details.more > summary::-webkit-details-marker { display: none; }
 .pill { display: inline-block; padding: 2px 8px; border-radius: var(--radius-pill); background: var(--color-field); border: var(--border-w) solid var(--color-border); font-size: var(--fs-small); }
+.aggiornamento { position: fixed; left: var(--space-3); right: var(--space-3); bottom: calc(var(--touch-min) + 40px + env(safe-area-inset-bottom)); z-index: 190;
+  display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; justify-content: space-between;
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-text); color: var(--color-bg); font-weight: var(--fw-bold); }
+.aggiornamento .btn { background: var(--color-bg); color: var(--color-text); border-color: var(--color-bg); }
+@media (min-width: 900px) { .aggiornamento { left: auto; bottom: var(--space-5); max-width: 420px; } }
 .offline { position: fixed; top: 0; left: 0; right: 0; z-index: 200; padding: 6px var(--gutter-m); background: var(--color-danger); color: var(--brand-bianco); font-weight: var(--fw-bold); text-align: center; font-size: var(--fs-small); }
 
 /* logo: versione scura su sfondo chiaro e viceversa */
