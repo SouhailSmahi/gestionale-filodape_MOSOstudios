@@ -24,9 +24,9 @@ export function home(): Pagina {
   let grafici: T.Grafico[] = [];
   let personalizza = false;
   // dati, caricati solo se servono ai riquadri scelti
-  let notifiche = 0, daConf = 0, scad: T.Scadenza[] = [], saldi: T.Saldo[] = [], lotti: T.Lotto[] = [], sfuso = 0;
+  let notifiche = 0, daConf = 0, scad: T.Scadenza[] = [], lotti: T.Lotto[] = [], sfuso = 0;
   let giac: T.GiacenzaArticolo[] = [], quadro: T.Quadro[] = [], acq: T.Acquisto[] = [], quota: T.QuotaStagione | null = null;
-  let vend: T.Vendita[] = [], dati: Dati | null = null, ordAnno: T.OrdiniAnno | null = null;
+  let vend: T.Vendita[] = [], dati: Dati | null = null, aperti: T.OrdiniDaIncassare | null = null;
   let per: 'mese' | 'anno' = 'mese';
 
   const anno = new Date().getFullYear();
@@ -42,8 +42,8 @@ export function home(): Pagina {
     if (vuole('todo', 'kpi')) job.push(api.notificheDaLeggere().then((n) => { notifiche = n.reduce((a, x) => a + x.da_leggere, 0); }),
       api.comande({ stati: ['in_attesa_conferma'] }).then((c) => { daConf = c.length; }));
     if (vuole('kpi', 'consegne')) job.push(api.scadenze().then((s) => { scad = s; }));
-    if (vuole('kpi')) job.push(api.saldiAperti().then((s) => { saldi = s; }), api.mieleSfuso().then((m) => { sfuso = m.reduce((a, x) => a + Number(x.kg), 0); }),
-      api.ordiniAnno().then((o) => { ordAnno = o.find((x) => x.anno === anno) ?? null; }));
+    if (vuole('kpi')) job.push(api.mieleSfuso().then((m) => { sfuso = m.reduce((a, x) => a + Number(x.kg), 0); }),
+      api.ordiniDaIncassare().then((o) => { aperti = o[0] ?? null; }));
     if (vuole('todo', 'produzione')) job.push(api.lotti().then((l) => { lotti = l; }));
     if (vuole('todo', 'scorte')) job.push(api.giacenzeArticoli().then((g) => { giac = g; }));
     if (vuole('magazzino')) job.push(api.quadroDisponibilita().then((q) => { quadro = q; }));
@@ -70,16 +70,15 @@ export function home(): Pagina {
       return html`<section><h2 style="margin-bottom:var(--space-3)">Da fare</h2>${lista(v, 'Niente in sospeso.')}</section>`;
     },
     kpi() {
-      const daIncassare = saldi.reduce((a, s) => a + Math.max(Number(s.saldo), 0), 0);
-      const o = ordAnno;
+      const o = aperti, n = o?.ordini ?? 0;
       return html`<a class="card totale-ordini" href="/ordini">
-          <div class="l">Ordini ${anno}: valore totale</div>
+          <div class="l">Ordini ancora da incassare</div>
           <div class="n">${eur(Number(o?.totale ?? 0))}</div>
-          <div class="small">${o ? html`${o.ordini} ordini · consegnati ${eur(Number(o.consegnato))} · da consegnare ${eur(Number(o.da_consegnare))} · da confermare ${eur(Number(o.da_confermare))}`
-            : 'Ancora nessun ordine quest\'anno.'}${o?.pezzi_senza_prezzo ? html`<br><span class="danger-text">${o.pezzi_senza_prezzo} pz senza prezzo non sono nel totale</span>` : nothing}</div>
+          <div class="small">${n ? html`${n} ${n === 1 ? 'ordine' : 'ordini'} · da confermare ${eur(Number(o!.da_confermare))} · confermati da consegnare ${eur(Number(o!.da_consegnare))} · consegnati da incassare ${eur(Number(o!.consegnati))}`
+            : 'Tutti gli ordini sono incassati.'}${o?.pezzi_senza_prezzo ? html`<br><span class="danger-text">${o.pezzi_senza_prezzo} pz senza prezzo non sono nel totale</span>` : nothing}</div>
         </a>
         <div class="kpis">${kpi('Da confermare', daConf, '/ordini')}${kpi('Consegne entro 7 giorni', scad.length, '/ordini?vista=corso')}
-        ${kpi('Da incassare', eur(daIncassare), '/ordini?vista=saldi')}${kpi('Miele sfuso', kg(sfuso, 0), '/magazzino?vista=sfuso')}</div>`;
+        ${kpi('Miele sfuso', kg(sfuso, 0), '/magazzino?vista=sfuso')}</div>`;
     },
     produzione() {
       const ap = lotti.filter((l) => l.stato === 'aperto');
@@ -134,7 +133,7 @@ export function home(): Pagina {
       const m = new Date().getMonth();
       const val = Array.from({ length: 12 }, (_, i) => (i > m ? null : vend.filter((v) => v.anno === anno && v.mese === i + 1).reduce((a, v) => a + Number(v.importo ?? 0), 0)));
       return html`<section><h2 style="margin-bottom:var(--space-1)">Consegnato dell'anno</h2>
-        <p class="small" style="margin-bottom:var(--space-3)">Valore della merce consegnata, mese per mese (gli ordini non ancora consegnati sono nel totale qui sopra)</p><div class="card">
+        <p class="small" style="margin-bottom:var(--space-3)">Valore della merce consegnata, mese per mese (gli ordini non ancora consegnati non ci sono)</p><div class="card">
         ${grafLinee('home-v', Array.from({ length: 12 }, (_, i) => meseBreve(i)), [{ nome: String(anno), valori: val }], (v) => eur(v), (v) => eur0(v))}</div></section>`;
     },
   };

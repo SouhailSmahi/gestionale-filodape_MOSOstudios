@@ -6,22 +6,22 @@ import { eur, eur0, fd, num, numCampo, parseNum } from '../lib/format';
 import { grafBarre } from '../ui/charts';
 import { icon } from '../ui/icons';
 import { Modulo, campo, erroreModulo, chiedi, toast, badge } from '../ui/kit';
-import type { FatturatoAnno, ModificaFatturato } from '../lib/types';
+import type { FatturatoAnno, ModificaFatturato, OrdiniAnno } from '../lib/types';
 
 /** Primo anno calcolato dall'app: prima si scrive a mano (lo controlla anche il database). */
 const PRIMO_AUTO = 2026;
 
 export interface StatoFatturato {
-  anni: FatturatoAnno[]; modifiche: ModificaFatturato[];
+  anni: FatturatoAnno[]; modifiche: ModificaFatturato[]; ordini: OrdiniAnno[];
   scelti: Set<number> | null;              // null = scelta iniziale (ultimi due anni)
   modulo: Modulo<{ anno: string; importo: string; nota: string }> | null;
   nuovo: boolean;                          // il modulo aggiunge un anno nuovo
 }
 
-export const statoFatturato = (): StatoFatturato => ({ anni: [], modifiche: [], scelti: null, modulo: null, nuovo: false });
+export const statoFatturato = (): StatoFatturato => ({ anni: [], modifiche: [], ordini: [], scelti: null, modulo: null, nuovo: false });
 
 export async function caricaFatturato(s: StatoFatturato) {
-  [s.anni, s.modifiche] = await Promise.all([api.fatturatoAnni(), api.modificheFatturato()]);
+  [s.anni, s.modifiche, s.ordini] = await Promise.all([api.fatturatoAnni(), api.modificheFatturato(), api.ordiniAnno()]);
 }
 
 const annoCorrente = () => new Date().getFullYear();
@@ -127,4 +127,17 @@ function moduloFatturato(s: StatoFatturato): TemplateResult {
       <ul class="small" style="padding-left:var(--space-5)">${storia.map((x) => html`<li>${fd(x.modificato_il)}${x.autore?.nome ? `, ${x.autore.nome}` : ''}:
         ${x.importo_prima == null ? 'inserito' : eur(Number(x.importo_prima))} → ${x.importo_dopo == null ? 'tolto' : eur(Number(x.importo_dopo))}${x.nota ? ` (${x.nota})` : ''}</li>`)}</ul></details>` : nothing}
   </div>`;
+}
+
+/** Valore di tutti gli ordini inseriti in ogni anno (annullati esclusi), anche quelli da confermare. */
+export function schedaValoreOrdini(s: StatoFatturato): TemplateResult {
+  if (!s.ordini.length) return html`${nothing}`;
+  return html`<section class="card" style="margin-bottom:var(--space-6)">
+    <h3>Valore ordini dell'anno</h3>
+    <p class="small">Tutti gli ordini inseriti nell'anno, anche quelli ancora da confermare (gli annullati no). Il fatturato qui sopra conta solo quelli confermati.</p>
+    <div class="list mt">${[...s.ordini].sort((a, b) => b.anno - a.anno).map((o) => html`<div class="item">
+      <div class="body"><div class="t">${etichetta(o.anno)}</div>
+        <div class="m">${o.ordini} ordini · consegnati ${eur(Number(o.consegnato))} · da consegnare ${eur(Number(o.da_consegnare))} · da confermare ${eur(Number(o.da_confermare))}</div></div>
+      <div class="v">${eur(Number(o.totale))}</div></div>`)}</div>
+  </section>`;
 }

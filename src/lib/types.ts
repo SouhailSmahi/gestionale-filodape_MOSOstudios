@@ -133,3 +133,8 @@ export interface OrdiniAnno {
   anno: number; ordini: number; totale: number; da_confermare: number; da_consegnare: number; consegnato: number;
   ordini_da_confermare: number; pezzi_senza_prezzo: number;
 }
+
+/** Soldi ancora da incassare sugli ordini aperti (acconti già scalati), per la Home. */
+export interface OrdiniDaIncassare {
+  ordini: number; totale: number; da_confermare: number; da_consegnare: number; consegnati: number; pezzi_senza_prezzo: number;
+}
