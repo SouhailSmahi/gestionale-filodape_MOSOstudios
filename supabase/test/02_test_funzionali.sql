@@ -258,6 +258,23 @@ select pg_temp.as_user('staff');
 select pg_temp.check('staff non vede il valore degli ordini', (select count(*) from v_ordini_anno) = 0);
 select pg_temp.as_user('admin');
 
+-- soldi ancora da incassare sugli ordini aperti (Home)
+select pg_temp.as_user('admin');
+select pg_temp.check('da incassare: totale = da confermare + da consegnare + consegnati',
+  (select totale = da_confermare + da_consegnare + consegnati from v_ordini_da_incassare));
+select totale as dai_prima from v_ordini_da_incassare \gset
+select crea_comanda((select id from clienti limit 1), null, '[{"variante_id":2,"quantita":1}]') as dz \gset
+select prezzo_unitario_applicato as dzp from comanda_righe where comanda_id = :dz \gset
+select pg_temp.check('ordine nuovo da confermare entra nel da incassare', (select totale from v_ordini_da_incassare) = :dai_prima + :dzp);
+select conferma_comande(array[:dz]::bigint[], 'confermata', current_date + 1);
+insert into movimenti_pagamento (comanda_id, importo) values (:dz, 2);
+select pg_temp.check('l''acconto riduce il da incassare', (select totale from v_ordini_da_incassare) = :dai_prima + :dzp - 2);
+insert into movimenti_pagamento (comanda_id, importo) values (:dz, :dzp - 2);
+select pg_temp.check('pagato del tutto: non conta più (anche se non consegnato)', (select totale from v_ordini_da_incassare) = :dai_prima);
+select pg_temp.as_user('staff');
+select pg_temp.check('staff non vede il da incassare', (select ordini from v_ordini_da_incassare) = 0);
+select pg_temp.as_user('admin');
+
 -- utente disattivato
 reset role;
 update profili set attivo = false where username = 'anna.menossi';

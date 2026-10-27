@@ -7,7 +7,7 @@ import { eur, eur0, num, meseBreve, fd } from '../lib/format';
 import { messaggioErrore } from '../lib/errors';
 import { grafLinee, grafBarre, grafOrizzontale } from '../ui/charts';
 import { HOME_DEF } from './home';
-import { statoFatturato, caricaFatturato, schedaFatturato } from './fatturato';
+import { statoFatturato, caricaFatturato, schedaFatturato, schedaValoreOrdini } from './fatturato';
 import { testa, toast, chiedi, Modulo, scelta } from '../ui/kit';
 import type { Grafico, Lotto, Spesa, Vendita } from '../lib/types';
 
@@ -137,6 +137,7 @@ export function andamento(q: URLSearchParams): Pagina {
         azioni: html`<button class="btn" @click=${() => { builder = builder ? null : new Modulo({ misura: 'incassi', divisione: 'tipo_miele', anno: String(anno) }); aggiorna(); }}>${builder ? 'Chiudi' : '+ Nuovo grafico'}</button>` })}
       ${builder ? vistaBuilder(builder, d, anni, salvaGrafico) : nothing}
       ${schedaFatturato(fatt)}
+      ${schedaValoreOrdini(fatt)}
       <div class="seg" role="group" aria-label="Anno">${anni.map((y) => html`<button aria-pressed=${y === anno ? 'true' : 'false'} @click=${() => { anno = y; history.replaceState(history.state, '', `/andamento?anno=${y}`); aggiorna(); }}>${y}</button>`)}</div>
       <div class="cols">
         <section class="card"><h3>Vendite per mese</h3><p class="small">Incassato da clienti e mercati, ${anno}${prec ? ` rispetto al ${anno - 1}` : ''}</p>
