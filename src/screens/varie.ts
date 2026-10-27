@@ -9,6 +9,7 @@ import { rif, carica } from '../lib/rif';
 import { eur, fd, fdl, isoDate, parseNum, numCampo } from '../lib/format';
 import { messaggioErrore } from '../lib/errors';
 import { icon } from '../ui/icons';
+import { esci } from './login';
 import { Modulo, campo, scelta, area, testa, toast, chiedi, erroreModulo, bottoneInvio, riga, lista, kpi, badge, finestra, segmenti } from '../ui/kit';
 import type * as T from '../lib/types';
 
@@ -196,6 +197,7 @@ export function altro(): Pagina {
     ['/anagrafiche', 'Anagrafiche', () => 'Clienti, fornitori, postazioni, mezzi'], ['/articoli', 'Anagrafica articoli', () => 'Articoli e prodotti in vendita'],
     ['/impostazioni', 'Impostazioni', () => 'Utenti, password, valori di calcolo, aspetto'],
   ];
-  return { titolo: 'Altro', tab: 'altro', vista: () => html`${testa('Altro')}${lista(voci.map(([h, t, m]) => riga({ href: h, t, m: m() })))}` };
+  return { titolo: 'Altro', tab: 'altro', vista: () => html`${testa('Altro')}${lista(voci.map(([h, t, m]) => riga({ href: h, t, m: m() })))}
+    <div class="btns"><button class="btn" @click=${esci}>${icon('esci')} Esci (cambia utente)</button></div>` };
 }
 

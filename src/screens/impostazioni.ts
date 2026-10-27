@@ -8,6 +8,7 @@ import { AppError } from '../lib/errors';
 import { Modulo, campo, testa, toast, riga, lista, finestra, erroreModulo, bottoneInvio, chiedi, badge, spunta } from '../ui/kit';
 import type { Impostazioni, Profilo } from '../lib/types';
 import { statoBackup, caricaBackup, sezioneBackup } from './backup';
+import { esci } from './login';
 
 type Tema = 'auto' | 'light' | 'dark';
 const temaAttuale = (): Tema => (document.documentElement.dataset.theme as Tema) || 'auto';
@@ -93,7 +94,8 @@ export function impostazioni(): Pagina {
         <section class="card">
           <h2>Il tuo accesso</h2>
           <dl class="dl mt"><dt>Nome</dt><dd>${me.nome} ${me.cognome}</dd><dt>Nome utente</dt><dd>${me.username}</dd></dl>
-          <div class="btns"><button class="btn" @click=${() => modPassword('Cambia password', (p) => api.cambiaPassword(p), 'Dal prossimo accesso userai la nuova password.')}>Cambia password</button></div>
+          <div class="btns"><button class="btn" @click=${() => modPassword('Cambia password', (p) => api.cambiaPassword(p), 'Dal prossimo accesso userai la nuova password.')}>Cambia password</button>
+            <button class="btn quiet" @click=${esci}>Esci (cambia utente)</button></div>
         </section>
         <section class="card">
           <h2>Aspetto</h2>

@@ -253,6 +253,7 @@ export const salvaIscrizionePush = (endpoint: string, p256dh: string, auth: stri
   rpc('salva_iscrizione_push', { p_endpoint: endpoint, p_p256dh: p256dh, p_auth: auth, p_dispositivo: dispositivo });
 export const togliIscrizionePush = (endpoint: string) => rpc('togli_iscrizione_push', { p_endpoint: endpoint });
 
+export const ordiniAnno = () => q<T.OrdiniAnno[]>(sb.from('v_ordini_anno').select('*').order('anno'));
 export const fatturatoAnni = () => q<T.FatturatoAnno[]>(sb.from('v_fatturato_anni').select('*').order('anno'));
 export const modificheFatturato = () => q<T.ModificaFatturato[]>(sb.from('fatturato_storico_modifiche')
   .select('id, anno, importo_prima, importo_dopo, nota, modificato_il, autore:profili(nome)').order('id', { ascending: false }).limit(50));
