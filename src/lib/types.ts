@@ -127,3 +127,9 @@ export interface ModificaFatturato {
 
 /** Cosa rappresenta un movimento di denaro di un ordine (lo decide il database). */
 export type TipoMovimento = 'incasso' | 'acconto' | 'incasso_acconto' | 'resto';
+
+/** Valore degli ordini inseriti in un anno (annullati esclusi), per la Home. */
+export interface OrdiniAnno {
+  anno: number; ordini: number; totale: number; da_confermare: number; da_consegnare: number; consegnato: number;
+  ordini_da_confermare: number; pezzi_senza_prezzo: number;
+}

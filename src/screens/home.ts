@@ -16,7 +16,7 @@ export const HOME_DEF = ['todo', 'kpi', 'produzione'];
 const RIQUADRI: Record<string, string> = {
   todo: 'Da fare', kpi: 'Numeri principali', produzione: 'Produzione in corso', venduto: 'Venduto',
   consegne: 'Consegne in arrivo', magazzino: 'Magazzino e ordini', scorte: 'Scorte sotto il minimo',
-  acquisti: 'Ultimi acquisti', stagione: 'Costi della stagione', grafico: 'Vendite dell\'anno',
+  acquisti: 'Ultimi acquisti', stagione: 'Costi della stagione', grafico: 'Consegnato dell\'anno',
 };
 
 export function home(): Pagina {
@@ -26,7 +26,7 @@ export function home(): Pagina {
   // dati, caricati solo se servono ai riquadri scelti
   let notifiche = 0, daConf = 0, scad: T.Scadenza[] = [], saldi: T.Saldo[] = [], lotti: T.Lotto[] = [], sfuso = 0;
   let giac: T.GiacenzaArticolo[] = [], quadro: T.Quadro[] = [], acq: T.Acquisto[] = [], quota: T.QuotaStagione | null = null;
-  let vend: T.Vendita[] = [], dati: Dati | null = null;
+  let vend: T.Vendita[] = [], dati: Dati | null = null, ordAnno: T.OrdiniAnno | null = null;
   let per: 'mese' | 'anno' = 'mese';
 
   const anno = new Date().getFullYear();
@@ -42,7 +42,8 @@ export function home(): Pagina {
     if (vuole('todo', 'kpi')) job.push(api.notificheDaLeggere().then((n) => { notifiche = n.reduce((a, x) => a + x.da_leggere, 0); }),
       api.comande({ stati: ['in_attesa_conferma'] }).then((c) => { daConf = c.length; }));
     if (vuole('kpi', 'consegne')) job.push(api.scadenze().then((s) => { scad = s; }));
-    if (vuole('kpi')) job.push(api.saldiAperti().then((s) => { saldi = s; }), api.mieleSfuso().then((m) => { sfuso = m.reduce((a, x) => a + Number(x.kg), 0); }));
+    if (vuole('kpi')) job.push(api.saldiAperti().then((s) => { saldi = s; }), api.mieleSfuso().then((m) => { sfuso = m.reduce((a, x) => a + Number(x.kg), 0); }),
+      api.ordiniAnno().then((o) => { ordAnno = o.find((x) => x.anno === anno) ?? null; }));
     if (vuole('todo', 'produzione')) job.push(api.lotti().then((l) => { lotti = l; }));
     if (vuole('todo', 'scorte')) job.push(api.giacenzeArticoli().then((g) => { giac = g; }));
     if (vuole('magazzino')) job.push(api.quadroDisponibilita().then((q) => { quadro = q; }));
@@ -70,7 +71,14 @@ export function home(): Pagina {
     },
     kpi() {
       const daIncassare = saldi.reduce((a, s) => a + Math.max(Number(s.saldo), 0), 0);
-      return html`<div class="kpis">${kpi('Da confermare', daConf, '/ordini')}${kpi('Consegne entro 7 giorni', scad.length, '/ordini?vista=corso')}
+      const o = ordAnno;
+      return html`<a class="card totale-ordini" href="/ordini">
+          <div class="l">Ordini ${anno}: valore totale</div>
+          <div class="n">${eur(Number(o?.totale ?? 0))}</div>
+          <div class="small">${o ? html`${o.ordini} ordini · consegnati ${eur(Number(o.consegnato))} · da consegnare ${eur(Number(o.da_consegnare))} · da confermare ${eur(Number(o.da_confermare))}`
+            : 'Ancora nessun ordine quest\'anno.'}${o?.pezzi_senza_prezzo ? html`<br><span class="danger-text">${o.pezzi_senza_prezzo} pz senza prezzo non sono nel totale</span>` : nothing}</div>
+        </a>
+        <div class="kpis">${kpi('Da confermare', daConf, '/ordini')}${kpi('Consegne entro 7 giorni', scad.length, '/ordini?vista=corso')}
         ${kpi('Da incassare', eur(daIncassare), '/ordini?vista=saldi')}${kpi('Miele sfuso', kg(sfuso, 0), '/magazzino?vista=sfuso')}</div>`;
     },
     produzione() {
@@ -125,7 +133,8 @@ export function home(): Pagina {
     grafico() {
       const m = new Date().getMonth();
       const val = Array.from({ length: 12 }, (_, i) => (i > m ? null : vend.filter((v) => v.anno === anno && v.mese === i + 1).reduce((a, v) => a + Number(v.importo ?? 0), 0)));
-      return html`<section><h2 style="margin-bottom:var(--space-3)">Vendite dell'anno</h2><div class="card">
+      return html`<section><h2 style="margin-bottom:var(--space-1)">Consegnato dell'anno</h2>
+        <p class="small" style="margin-bottom:var(--space-3)">Valore della merce consegnata, mese per mese (gli ordini non ancora consegnati sono nel totale qui sopra)</p><div class="card">
         ${grafLinee('home-v', Array.from({ length: 12 }, (_, i) => meseBreve(i)), [{ nome: String(anno), valori: val }], (v) => eur(v), (v) => eur0(v))}</div></section>`;
     },
   };

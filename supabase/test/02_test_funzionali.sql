@@ -246,6 +246,18 @@ select pg_temp.as_user('admin');
 select togli_iscrizione_push('https://push.example/abc');
 select pg_temp.check('iscrizione tolta', (select count(*) from push_iscrizioni) = 0);
 
+-- valore degli ordini dell'anno (Home)
+select pg_temp.as_user('admin');
+select pg_temp.check('ordini dell''anno: totale = da confermare + da consegnare + consegnato',
+  (select totale = da_confermare + da_consegnare + consegnato from v_ordini_anno where anno = extract(year from now() at time zone 'Europe/Rome')::int));
+select pg_temp.check('ordini dell''anno: annullati esclusi, da confermare inclusi',
+  (select totale from v_ordini_anno where anno = extract(year from now() at time zone 'Europe/Rome')::int)
+  = (select sum(cr.quantita_ordinata * coalesce(cr.prezzo_unitario_applicato, 0)) from comande c join comanda_righe cr on cr.comanda_id = c.id
+      where c.stato <> 'annullata' and extract(year from c.creata_il at time zone 'Europe/Rome') = extract(year from now() at time zone 'Europe/Rome')));
+select pg_temp.as_user('staff');
+select pg_temp.check('staff non vede il valore degli ordini', (select count(*) from v_ordini_anno) = 0);
+select pg_temp.as_user('admin');
+
 -- utente disattivato
 reset role;
 update profili set attivo = false where username = 'anna.menossi';
